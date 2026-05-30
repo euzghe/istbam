@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
   open: boolean;
@@ -8,8 +8,48 @@ type Props = {
   live?: { lng: number; lat: number };
 };
 
+// İki nokta arası mesafe (m) — yalnız anlamlı hareketlerde iframe'i tazele.
+function metersBetween(a: { lng: number; lat: number }, b: { lng: number; lat: number }) {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 export function TrafficMapOverlay({ open, onClose, live }: Props) {
   const [visible, setVisible] = useState(false);
+  // Iframe için "snapshot" konum — sürekli pozisyon güncellemeleri iframe'i
+  // yeniden yüklemesin diye sadece >75m oynayınca veya manuel butonla değişir.
+  const [snapshot, setSnapshot] = useState<{ lng: number; lat: number } | null>(
+    live ?? null,
+  );
+  const [recenterTick, setRecenterTick] = useState(0);
+  const lastSyncRef = useRef<number>(0);
+
+  // Overlay ilk açıldığında canlı konumu snapshot olarak al.
+  useEffect(() => {
+    if (open && live && !snapshot) setSnapshot(live);
+  }, [open, live, snapshot]);
+
+  // Canlı konum 75m'den fazla oynadıysa snapshot'ı güncelle (iframe reload olur).
+  useEffect(() => {
+    if (!open || !live) return;
+    if (!snapshot) {
+      setSnapshot(live);
+      return;
+    }
+    const d = metersBetween(snapshot, live);
+    const now = Date.now();
+    // En az 8 sn aralıkla ve 75m üstü hareketlerde güncelle.
+    if (d > 75 && now - lastSyncRef.current > 8000) {
+      lastSyncRef.current = now;
+      setSnapshot({ lng: live.lng, lat: live.lat });
+    }
+  }, [live, open, snapshot]);
 
   useEffect(() => {
     if (open) setVisible(true);
@@ -32,18 +72,37 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
     };
   }, [open, onClose]);
 
+  // Iframe URL — snapshot konuma odakla + üzerine kırmızı pin koy.
+  // Yandex pt param: lng,lat,style — pm2rdm = orta boy kırmızı pin.
+  const yandexUrl = useMemo(() => {
+    const center = snapshot ?? { lng: 29.02, lat: 41.05 };
+    const ll = `${center.lng.toFixed(5)},${center.lat.toFixed(5)}`;
+    const z = snapshot ? 14 : 10;
+    const pt = snapshot
+      ? `&pt=${center.lng.toFixed(5)},${center.lat.toFixed(5)},pm2rdm`
+      : "";
+    // recenterTick URL'ye eklenerek "Konumuma git" butonunda iframe tazelenir.
+    const tick = recenterTick ? `&_t=${recenterTick}` : "";
+    return `https://yandex.com.tr/map-widget/v1/?lang=tr_TR&ll=${ll}&z=${z}&l=trf${pt}${tick}`;
+  }, [snapshot, recenterTick]);
+
+  const yandexFull = useMemo(() => {
+    const center = snapshot ?? { lng: 29.02, lat: 41.05 };
+    const ll = `${center.lng.toFixed(5)},${center.lat.toFixed(5)}`;
+    const z = snapshot ? 14 : 10;
+    const pt = snapshot
+      ? `&pt=${center.lng.toFixed(5)},${center.lat.toFixed(5)},pm2rdm`
+      : "";
+    return `https://yandex.com.tr/maps/?ll=${ll}&z=${z}&l=trf${pt}`;
+  }, [snapshot]);
+
   if (!visible && !open) return null;
 
-  // Yandex Maps map-widget — l=trf trafik katmanını açar, gerçek per-segment renkli.
-  // Yandex'in CSP'sinde X-Frame-Options yok, iframe'lenebiliyor.
-  const ll = live
-    ? `${live.lng.toFixed(5)},${live.lat.toFixed(5)}`
-    : "29.02,41.05";
-  const z = live ? 13 : 10;
-  const yandexUrl = `https://yandex.com.tr/map-widget/v1/?lang=tr_TR&ll=${ll}&z=${z}&l=trf`;
-
-  // Tam ekran Yandex linki (yeni sekme için)
-  const yandexFull = `https://yandex.com.tr/maps/?ll=${ll}&z=${z}&l=trf`;
+  const recenter = () => {
+    if (!live) return;
+    setSnapshot({ lng: live.lng, lat: live.lat });
+    setRecenterTick((t) => t + 1);
+  };
 
   return (
     <div
@@ -66,21 +125,36 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
       >
         <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 bg-bogaz-deep text-sis shrink-0">
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-widest text-vapur font-semibold">
+            <div className="text-[10px] uppercase tracking-widest text-vapur font-semibold flex items-center gap-1.5">
               Trafik haritası · Yandex canlı
+              {live && snapshot && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-vapur/20 text-vapur px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal">
+                  <span className="inline-block size-1.5 rounded-full bg-vapur animate-pulse" />
+                  Konumun haritada
+                </span>
+              )}
             </div>
             <div className="font-display font-semibold leading-tight">
               İstanbul anlık trafik akışı
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {live && (
+              <button
+                onClick={recenter}
+                className="rounded-full bg-vapur text-bogaz-deep font-semibold text-[11px] px-3 py-1.5 hover:bg-vapur-soft transition"
+                title="Haritayı konumuma odakla"
+              >
+                📍 Konumum
+              </button>
+            )}
             <a
               href={yandexFull}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full bg-vapur text-bogaz-deep font-semibold text-[11px] px-3 py-1.5 hover:bg-vapur-soft transition hidden sm:inline-block"
+              className="rounded-full bg-sis/15 text-sis font-semibold text-[11px] px-3 py-1.5 hover:bg-sis/20 transition hidden sm:inline-block"
             >
-              Yandex tam ekran ↗
+              Tam ekran ↗
             </a>
             <button
               onClick={onClose}
