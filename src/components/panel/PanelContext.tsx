@@ -62,6 +62,8 @@ export type PanelState = {
   openMapForIspark: (id: number) => void;
   navigating: boolean;
   route: OsrmRoute | null;
+  routeLoading: boolean;
+  routeError: string | null;
   nextManeuver: NextManeuver | null;
   upcomingDecisions: NextManeuver[];
 };

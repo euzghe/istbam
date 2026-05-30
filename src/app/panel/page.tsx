@@ -14,6 +14,7 @@ import { FavoritesQuick } from "@/components/panel/sections/FavoritesQuick";
 import { SpeedWidget } from "@/components/panel/sections/SpeedWidget";
 import { RouteTollsCard } from "@/components/panel/sections/RouteTollsCard";
 import { RouteTrafficCard } from "@/components/panel/sections/RouteTrafficCard";
+import { RouteStatusCard } from "@/components/panel/sections/RouteStatusCard";
 
 export default function PanelHome() {
   const {
@@ -40,6 +41,7 @@ export default function PanelHome() {
         accent={navigating ? "vapur" : "cini"}
       />
       <StatusStrip />
+      <RouteStatusCard />
       <SpeedWidget />
       <FavoritesQuick />
       {!live && (

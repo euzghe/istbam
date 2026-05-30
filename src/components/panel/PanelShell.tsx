@@ -54,6 +54,8 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   // (mobilde kapalı, masaüstünde açık). Bu hidrasyon uyumsuzluğunu önler.
   const [sideOpen, setSideOpen] = useState(false);
   const [route, setRoute] = useState<OsrmRoute | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
   const lastRouteFetchRef = useRef<{ lng: number; lat: number; destKey: string } | null>(null);
 
   // İlk mount: localStorage tercihi varsa onu; yoksa ekran boyutu varsayılanı
@@ -118,6 +120,8 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!live || !destination) {
       setRoute(null);
+      setRouteError(null);
+      setRouteLoading(false);
       lastRouteFetchRef.current = null;
       return;
     }
@@ -130,6 +134,8 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     if (!destChanged && !movedFar) return;
 
     lastRouteFetchRef.current = { lng: live.lng, lat: live.lat, destKey };
+    setRouteLoading(true);
+    setRouteError(null);
     let alive = true;
     fetch(
       `/api/route?fromLng=${live.lng}&fromLat=${live.lat}&toLng=${destination.lng}&toLat=${destination.lat}`
@@ -137,10 +143,21 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
-        if (d?.error) setRoute(null);
-        else setRoute(d as OsrmRoute);
+        if (d?.error) {
+          setRoute(null);
+          setRouteError(d.error);
+        } else {
+          setRoute(d as OsrmRoute);
+          setRouteError(null);
+        }
+        setRouteLoading(false);
       })
-      .catch(() => {});
+      .catch((e) => {
+        if (!alive) return;
+        setRoute(null);
+        setRouteError(String(e?.message ?? e));
+        setRouteLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -259,6 +276,8 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       openMapForIspark,
       navigating: !!destination,
       route,
+      routeLoading,
+      routeError,
       nextManeuver,
       upcomingDecisions,
     }),
@@ -272,6 +291,8 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       activeJunction,
       nearestIsparks,
       route,
+      routeLoading,
+      routeError,
       nextManeuver,
       upcomingDecisions,
     ]

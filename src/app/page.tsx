@@ -27,6 +27,7 @@ function SiteNav() {
           <a href="#ispark" className="hover:text-vapur transition">İSPARK</a>
           <a href="#vapur" className="hover:text-vapur transition">Vapur</a>
           <a href="#detay" className="hover:text-vapur transition">Detay</a>
+          <Link href="/hakkimizda" className="hover:text-vapur transition">Hakkımızda</Link>
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle variant="light-bar" />
@@ -510,16 +511,35 @@ function CtaFooter() {
 function SiteFooter() {
   return (
     <footer className="bg-bogaz-deep text-sis/70 py-10">
-      <div className="mx-auto max-w-6xl px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="mx-auto max-w-6xl px-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div>
           <Logo variant="light" size={22} />
-          <span className="text-xs text-sis/50">
-            İstanbul'da arabayla olanlar için.
-          </span>
+          <p className="mt-3 text-xs text-sis/60 leading-relaxed">
+            İstanbul'da arabayla olanlar için açık veri tabanlı yardımcı.
+          </p>
         </div>
-        <div className="text-xs text-sis/50">
-          © {new Date().getFullYear()} İstbam · Yapım aşamasında
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-vapur font-bold mb-2">
+            Hızlı
+          </div>
+          <ul className="space-y-1.5 text-sm">
+            <li><Link href="/panel" className="hover:text-vapur transition">Sürücü Paneli</Link></li>
+            <li><Link href="/hakkimizda" className="hover:text-vapur transition">Hakkımızda</Link></li>
+          </ul>
         </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-vapur font-bold mb-2">
+            Kaynak
+          </div>
+          <ul className="space-y-1.5 text-sm">
+            <li><a href="https://github.com/euzghe/istbam" target="_blank" rel="noreferrer" className="hover:text-vapur transition">GitHub ↗</a></li>
+            <li><a href="https://github.com/euzghe/istbam/blob/main/README.md" target="_blank" rel="noreferrer" className="hover:text-vapur transition">README ↗</a></li>
+          </ul>
+        </div>
+      </div>
+      <div className="mt-8 mx-auto max-w-6xl px-6 text-[11px] text-sis/45 flex flex-wrap items-center justify-between gap-2 border-t border-sis/10 pt-4">
+        <span>© {new Date().getFullYear()} İstbam · Özge Altınok</span>
+        <span className="font-mono">istbam.vercel.app</span>
       </div>
     </footer>
   );
