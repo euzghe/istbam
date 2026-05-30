@@ -5,7 +5,7 @@
 //  - Map tile'ları (openfreemap, basemaps): stale-while-revalidate
 //  - Diğer GET'ler: cache passthrough
 
-const CACHE = "istbam-v3";
+const CACHE = "istbam-v4";
 const APP_SHELL = ["/", "/panel"];
 const RUNTIME = "istbam-runtime-v3";
 const TILES = "istbam-tiles-v3";
