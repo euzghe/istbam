@@ -120,13 +120,22 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
               "line-opacity": 0.45,
             },
           });
-          // Ana renkli çizgi (cityIndex ile dolacak — applyRoadColor)
+          // Ana renkli çizgi — başlangıçta cityIndex closure'daki değeri
+          // (network yüklenene kadar cityIndex zaten gelmiş olur, gelmediyse gri kalır)
+          const initialColor =
+            cityIndex == null
+              ? "#7d8aa3"
+              : cityIndex < 30
+              ? "#2eb872"
+              : cityIndex < 60
+              ? "#f5a524"
+              : "#c84b4b";
           mapRef.current.addLayer({
             id: "road-network-line",
             type: "line",
             source: "road-network",
             paint: {
-              "line-color": "#7d8aa3", // başlangıçta gri, sonra cityIndex ile güncellenir
+              "line-color": initialColor,
               "line-width": [
                 "interpolate",
                 ["linear"],
@@ -151,27 +160,26 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // cityIndex değişince hem köprüleri hem yol ağı rengini yenile
+  // cityIndex/networkLoaded değişince köprü + yol rengini güncelle.
+  // map.loaded() check'ini KALDIRDIK — addLayer sonrası transient false
+  // dönüp güncellemeyi blokluyordu.
   useEffect(() => {
-    if (!mapRef.current?.loaded()) return;
+    const map = mapRef.current;
+    if (!map) return;
     drawBridges();
-    applyRoadColor();
+    if (map.getLayer("road-network-line")) {
+      const color =
+        cityIndex == null
+          ? "#7d8aa3"
+          : cityIndex < 30
+          ? "#2eb872"
+          : cityIndex < 60
+          ? "#f5a524"
+          : "#c84b4b";
+      map.setPaintProperty("road-network-line", "line-color", color);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityIndex, networkLoaded]);
-
-  function applyRoadColor() {
-    const map = mapRef.current;
-    if (!map || !map.getLayer("road-network-line")) return;
-    const color =
-      cityIndex == null
-        ? "#7d8aa3"
-        : cityIndex < 30
-        ? "#2eb872"
-        : cityIndex < 60
-        ? "#f5a524"
-        : "#c84b4b";
-    map.setPaintProperty("road-network-line", "line-color", color);
-  }
 
   function drawBridges() {
     const map = mapRef.current;
