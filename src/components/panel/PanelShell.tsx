@@ -407,6 +407,23 @@ function TopBar({
   const [open, setOpen] = useState(false);
   const [hits, setHits] = useState<GeoHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside ile dropdown'u kapat (mobil blur yarışı sorunu çözüldü)
+  useEffect(() => {
+    if (!open) return;
+    function onDocPointer(e: PointerEvent) {
+      const el = searchBoxRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onDocPointer);
+    return () => document.removeEventListener("pointerdown", onDocPointer);
+  }, [open]);
+
+  // Query 2+ karakter veya input aktifse dropdown açık olsun
+  const dropdownOpen = open || query.trim().length >= 2;
 
   // Popüler yerler — anında filtre (debounce yok)
   const popularMatches = useMemo(() => searchPopular(query, 8), [query]);
@@ -506,7 +523,7 @@ function TopBar({
           )}
         </div>
 
-        <div className="relative flex-1 max-w-xl">
+        <div ref={searchBoxRef} className="relative flex-1 max-w-xl">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -523,7 +540,6 @@ function TopBar({
                 setOpen(true);
               }}
               onFocus={() => setOpen(true)}
-              onBlur={() => setTimeout(() => setOpen(false), 200)}
               placeholder="Ara: Kadıköy, Üsküdar, Bağdat Cd…"
               enterKeyHint="search"
               className="flex-1 bg-transparent outline-none text-sm placeholder:text-sis/50 min-w-0"
@@ -557,7 +573,7 @@ function TopBar({
             </button>
           </form>
 
-          {open && (
+          {dropdownOpen && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-card text-on rounded-card ring-1 ring-line shadow-xl shadow-bogaz-deep/20 max-h-96 overflow-y-auto z-30">
               {/* Popüler yerler önce */}
               {popularMatches.length > 0 && (
