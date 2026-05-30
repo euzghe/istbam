@@ -21,6 +21,7 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [cityIndex, setCityIndex] = useState<number | null>(null);
   const [visible, setVisible] = useState(false);
+  const [networkLoaded, setNetworkLoaded] = useState(false);
 
   // Canlı trafik endeksi
   useEffect(() => {
@@ -87,6 +88,60 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
 
     map.on("load", () => {
       drawBridges();
+      // Yol ağını arka planda yükle (3 MB civarı, gzip ile küçük)
+      fetch("/api/road-network")
+        .then((r) => r.json())
+        .then((nw) => {
+          if (!mapRef.current) return;
+          if (!nw?.features?.length) return;
+          if (mapRef.current.getSource("road-network")) return;
+
+          mapRef.current.addSource("road-network", {
+            type: "geojson",
+            data: nw,
+          });
+
+          // Kontur (kalın koyu)
+          mapRef.current.addLayer({
+            id: "road-network-casing",
+            type: "line",
+            source: "road-network",
+            paint: {
+              "line-color": "#0a1d3a",
+              "line-width": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                8,
+                ["case", ["==", ["get", "cls"], "motorway"], 5, 3],
+                14,
+                ["case", ["==", ["get", "cls"], "motorway"], 12, 7],
+              ],
+              "line-opacity": 0.45,
+            },
+          });
+          // Ana renkli çizgi (cityIndex ile dolacak — applyRoadColor)
+          mapRef.current.addLayer({
+            id: "road-network-line",
+            type: "line",
+            source: "road-network",
+            paint: {
+              "line-color": "#7d8aa3", // başlangıçta gri, sonra cityIndex ile güncellenir
+              "line-width": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                8,
+                ["case", ["==", ["get", "cls"], "motorway"], 3, 2],
+                14,
+                ["case", ["==", ["get", "cls"], "motorway"], 8, 5],
+              ],
+              "line-opacity": 0.92,
+            },
+          });
+          setNetworkLoaded(true);
+        })
+        .catch(() => {});
     });
 
     return () => {
@@ -96,12 +151,27 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // cityIndex değişince köprü renklerini yenile
+  // cityIndex değişince hem köprüleri hem yol ağı rengini yenile
   useEffect(() => {
     if (!mapRef.current?.loaded()) return;
     drawBridges();
+    applyRoadColor();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cityIndex]);
+  }, [cityIndex, networkLoaded]);
+
+  function applyRoadColor() {
+    const map = mapRef.current;
+    if (!map || !map.getLayer("road-network-line")) return;
+    const color =
+      cityIndex == null
+        ? "#7d8aa3"
+        : cityIndex < 30
+        ? "#2eb872"
+        : cityIndex < 60
+        ? "#f5a524"
+        : "#c84b4b";
+    map.setPaintProperty("road-network-line", "line-color", color);
+  }
 
   function drawBridges() {
     const map = mapRef.current;
@@ -268,7 +338,7 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
             <span className="size-2.5 rounded-full bg-vapur-red" /> Çok yoğun
           </span>
           <span className="ml-auto text-on-mute">
-            Yol-bazlı detay için "İBB resmi" linki — açık API yok
+            Renk = şehir endeksi · Yollar OSM, ağ uniform renkte
           </span>
         </footer>
       </div>
