@@ -1,14 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import {
-  BRIDGES,
-  bridgeEstimatedDensity,
-  bridgeEstimatedMin,
-} from "@/data/bridges";
-import { trafficStatusTr } from "@/lib/traffic-source";
+import { useEffect, useState } from "react";
 
 type Props = {
   open: boolean;
@@ -17,31 +9,7 @@ type Props = {
 };
 
 export function TrafficMapOverlay({ open, onClose, live }: Props) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const [cityIndex, setCityIndex] = useState<number | null>(null);
   const [visible, setVisible] = useState(false);
-
-  // Canlı trafik endeksi
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    const tick = () => {
-      fetch("/api/traffic")
-        .then((r) => r.json())
-        .then((d) => {
-          if (!alive) return;
-          if (d.source === "ibb") setCityIndex(d.current.index);
-        })
-        .catch(() => {});
-    };
-    tick();
-    const id = setInterval(tick, 60_000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [open]);
 
   useEffect(() => {
     if (open) setVisible(true);
@@ -64,141 +32,18 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
     };
   }, [open, onClose]);
 
-  // Harita oluştur
-  useEffect(() => {
-    if (!open || !containerRef.current || mapRef.current) return;
-
-    const isDark = document.documentElement.classList.contains("dark");
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: isDark
-        ? "https://tiles.openfreemap.org/styles/dark"
-        : "https://tiles.openfreemap.org/styles/positron",
-      center: [29.02, 41.05], // İstanbul merkez — trafik için her zaman şehir geneli
-      zoom: 10.5,
-      attributionControl: { compact: true },
-    });
-    mapRef.current = map;
-
-    map.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
-      "top-right"
-    );
-
-    map.on("load", () => {
-      drawBridges();
-    });
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // cityIndex değişince köprü renklerini yenile
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    drawBridges();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cityIndex]);
-
-  function drawBridges() {
-    const map = mapRef.current;
-    if (!map) return;
-
-    // Eski marker'ları sil
-    document
-      .querySelectorAll("[data-traffic-bridge='1']")
-      .forEach((el) => el.remove());
-
-    BRIDGES.forEach((b) => {
-      const density =
-        cityIndex == null
-          ? null
-          : bridgeEstimatedDensity(cityIndex, b.congestionMultiplier);
-      const min =
-        density == null ? null : bridgeEstimatedMin(b.baseTravelMin, density);
-      const color =
-        density == null
-          ? "#7d8aa3"
-          : density < 30
-          ? "#2eb872"
-          : density < 60
-          ? "#f5a524"
-          : "#c84b4b";
-
-      const el = document.createElement("div");
-      el.setAttribute("data-traffic-bridge", "1");
-      el.style.cssText = `
-        width: 36px; height: 36px; border-radius: 50%;
-        background: ${color};
-        border: 3px solid #f6f2e9;
-        box-shadow: 0 4px 14px rgba(10,29,58,0.45);
-        cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        color: #fff; font-weight: 800; font-size: 14px;
-        font-family: var(--font-manrope), system-ui;
-        transition: box-shadow .15s ease;
-      `;
-      el.textContent = b.shortName[0];
-      el.title = `${b.name} — ${density ?? "?"}/100`;
-      el.addEventListener("mouseenter", () => {
-        el.style.boxShadow = `0 0 0 10px ${color}44, 0 4px 14px rgba(10,29,58,0.45)`;
-      });
-      el.addEventListener("mouseleave", () => {
-        el.style.boxShadow = "0 4px 14px rgba(10,29,58,0.45)";
-      });
-
-      el.addEventListener("click", () => {
-        const safe = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-        const html = `
-          <div style="font-family: var(--font-manrope), system-ui; min-width: 220px;">
-            <div style="font-size:9px; font-weight:800; letter-spacing:.08em; color:${color}; text-transform:uppercase;">
-              ${density ?? "?"}/100 yoğunluk
-            </div>
-            <div style="font-size:14px; font-weight:700; color:#0a1d3a; line-height:1.25; margin-top:4px;">
-              ${safe(b.name)}
-            </div>
-            <div style="font-size:12px; color:#3b4b65; margin-top:6px;">
-              Tahmini geçiş: <strong>${min ?? "?"} dk</strong> · Ücret: <strong>${b.tollClass1Tl} ₺</strong>
-            </div>
-            <a href="${b.tariffSourceUrl}" target="_blank" rel="noreferrer"
-               style="display:inline-block; margin-top:10px; background:#f5a524; color:#0a1d3a; font-weight:700; font-size:12px; padding:6px 12px; border-radius:999px; text-decoration:none;">
-              Resmi tarife ↗
-            </a>
-          </div>
-        `;
-        new maplibregl.Popup({
-          offset: 18,
-          closeButton: true,
-          closeOnClick: false,
-          maxWidth: "280px",
-          className: "istbam-popup",
-        })
-          .setLngLat([b.lng, b.lat])
-          .setHTML(html)
-          .addTo(map);
-      });
-
-      new maplibregl.Marker({ element: el })
-        .setLngLat([b.lng, b.lat])
-        .addTo(map);
-    });
-  }
-
   if (!visible && !open) return null;
 
-  const status = cityIndex != null ? trafficStatusTr(cityIndex) : null;
-  const tone =
-    status?.tone === "good"
-      ? "text-cini"
-      : status?.tone === "warn"
-      ? "text-vapur"
-      : status?.tone === "bad"
-      ? "text-vapur-red"
-      : "text-on-mute";
+  // Yandex Maps map-widget — l=trf trafik katmanını açar, gerçek per-segment renkli.
+  // Yandex'in CSP'sinde X-Frame-Options yok, iframe'lenebiliyor.
+  const ll = live
+    ? `${live.lng.toFixed(5)},${live.lat.toFixed(5)}`
+    : "29.02,41.05";
+  const z = live ? 13 : 10;
+  const yandexUrl = `https://yandex.com.tr/map-widget/v1/?lang=tr_TR&ll=${ll}&z=${z}&l=trf`;
+
+  // Tam ekran Yandex linki (yeni sekme için)
+  const yandexFull = `https://yandex.com.tr/maps/?ll=${ll}&z=${z}&l=trf`;
 
   return (
     <div
@@ -222,56 +67,38 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
         <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 bg-bogaz-deep text-sis shrink-0">
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-widest text-vapur font-semibold">
-              Trafik haritası
+              Trafik haritası · Yandex canlı
             </div>
             <div className="font-display font-semibold leading-tight">
-              {cityIndex != null && status ? (
-                <>
-                  Şehir endeksi{" "}
-                  <span className={tone}>
-                    {cityIndex}/100 · {status.label}
-                  </span>
-                </>
-              ) : (
-                "İBB canlı trafik"
-              )}
+              İstanbul anlık trafik akışı
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-full px-3 py-1.5 text-xs font-semibold bg-sis/10 hover:bg-sis/15 ring-1 ring-sis/20 transition shrink-0"
-            aria-label="Kapat"
-          >
-            ✕ Kapat
-          </button>
-        </header>
-
-        <div ref={containerRef} className="flex-1" />
-
-        {/* Per-segment trafik için İBB resmi harita — büyük CTA */}
-        <div className="bg-bogaz-deep text-sis px-4 py-3 border-t border-sis/10">
-          <div className="flex items-start sm:items-center gap-3 justify-between flex-wrap">
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-widest text-vapur font-bold">
-                Yol-yol gerçek renkli trafik için
-              </div>
-              <div className="text-sm text-sis font-semibold mt-0.5 leading-tight">
-                İBB Trafik Yönetim Merkezi&apos;nin resmi canlı haritası
-              </div>
-              <div className="text-[10px] text-sis/60 mt-1 leading-snug">
-                Açık API olmadığı için per-segment veriyi sadece İBB&apos;nin kendi haritası yayınlıyor.
-              </div>
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
             <a
-              href="https://uym.ibb.gov.tr/yharita6/"
+              href={yandexFull}
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 rounded-full bg-vapur text-bogaz-deep font-bold text-sm px-4 py-2 hover:bg-vapur-soft transition shadow-md"
+              className="rounded-full bg-vapur text-bogaz-deep font-semibold text-[11px] px-3 py-1.5 hover:bg-vapur-soft transition hidden sm:inline-block"
             >
-              Resmi haritayı aç ↗
+              Yandex tam ekran ↗
             </a>
+            <button
+              onClick={onClose}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold bg-sis/10 hover:bg-sis/15 ring-1 ring-sis/20 transition"
+              aria-label="Kapat"
+            >
+              ✕ Kapat
+            </button>
           </div>
-        </div>
+        </header>
+
+        {/* Yandex iframe — gerçek per-segment trafik */}
+        <iframe
+          src={yandexUrl}
+          className="flex-1 border-0 bg-bogaz-deep"
+          title="Yandex Trafik Haritası"
+          loading="lazy"
+        />
 
         <footer className="px-4 py-2 bg-card/95 flex items-center gap-3 text-[11px] text-on-soft border-t border-line">
           <span className="inline-flex items-center gap-1.5">
@@ -284,7 +111,7 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
             <span className="size-2.5 rounded-full bg-vapur-red" /> Çok yoğun
           </span>
           <span className="ml-auto text-on-mute">
-            Renk = boğaz geçişleri (şehir endeksinden)
+            Veri kaynağı: Yandex Maps canlı trafik
           </span>
         </footer>
       </div>
