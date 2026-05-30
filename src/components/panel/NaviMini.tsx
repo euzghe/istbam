@@ -49,6 +49,29 @@ export function NaviMini({
   const focusMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [followMode, setFollowMode] = useState(true);
   const [cityIndex, setCityIndex] = useState<number | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Tam ekran açılıp kapanınca canvas boyutu değişir — map.resize() çağırmak gerek.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    // CSS geçişinin (border-radius vs.) bitmesini bekle.
+    const t = setTimeout(() => mapRef.current?.resize(), 60);
+    return () => clearTimeout(t);
+  }, [fullscreen]);
+
+  // Tam ekrandayken ESC kapatsın, body scroll kilitlensin.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onEsc);
+      document.body.style.overflow = "";
+    };
+  }, [fullscreen]);
 
   const live = userLng != null && userLat != null;
   const uLng = userLng ?? junctionLng;
@@ -289,12 +312,28 @@ export function NaviMini({
     setFollowMode((v) => !v);
   }
 
-  return (
-    <div className="px-5 mt-3">
-      <div className="relative rounded-xl overflow-hidden ring-1 ring-sis/15 bg-bogaz-deep">
-        <div ref={containerRef} className="w-full h-[340px] sm:h-[400px]" />
+  // Tam ekran modunda overlay sarmalı, inline modda kart kabuğu.
+  const wrapperClass = fullscreen
+    ? "fixed inset-0 z-[60] bg-bogaz-deep"
+    : "px-5 mt-3";
+  const frameClass = fullscreen
+    ? "relative w-full h-full bg-bogaz-deep"
+    : "relative rounded-xl overflow-hidden ring-1 ring-sis/15 bg-bogaz-deep";
+  const canvasClass = fullscreen
+    ? "w-full h-full"
+    : "w-full h-[340px] sm:h-[400px]";
 
-        <div className="absolute top-2 left-2 flex items-center gap-1.5">
+  return (
+    <div className={wrapperClass}>
+      <div className={frameClass}>
+        <div ref={containerRef} className={canvasClass} />
+
+        <div
+          className={`absolute left-2 flex items-center gap-1.5 ${
+            fullscreen ? "top-3" : "top-2"
+          }`}
+          style={fullscreen ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
+        >
           <span className="inline-flex items-center gap-1.5 bg-bogaz-deep/85 backdrop-blur rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider">
             <span
               className={`size-1.5 rounded-full ${
@@ -320,7 +359,12 @@ export function NaviMini({
           )}
         </div>
 
-        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+        <div
+          className={`absolute right-2 flex items-center gap-1.5 ${
+            fullscreen ? "top-3" : "top-2"
+          }`}
+          style={fullscreen ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
+        >
           <button
             onClick={toggleMode}
             className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 backdrop-blur transition ${
@@ -336,6 +380,14 @@ export function NaviMini({
           >
             {followMode ? "🎯 Yakın takip" : "🗺 Genel bakış"}
           </button>
+          <button
+            onClick={() => setFullscreen((v) => !v)}
+            className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 backdrop-blur transition bg-bogaz-deep/85 text-sis hover:bg-bogaz-deep ring-1 ring-sis/15"
+            title={fullscreen ? "Tam ekrandan çık (Esc)" : "Tam ekrana geç"}
+            aria-label={fullscreen ? "Tam ekrandan çık" : "Tam ekrana geç"}
+          >
+            {fullscreen ? "✕ Çık" : "⛶ Tam ekran"}
+          </button>
           <span className="bg-vapur text-bogaz-deep text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1">
             {distanceM < 1000
               ? `${distanceM} m`
@@ -343,7 +395,10 @@ export function NaviMini({
           </span>
         </div>
 
-        <div className="absolute bottom-2 left-2 right-2 bg-bogaz-deep/85 backdrop-blur rounded-md px-2.5 py-1.5 text-[11px] text-sis truncate">
+        <div
+          className="absolute bottom-2 left-2 right-2 bg-bogaz-deep/85 backdrop-blur rounded-md px-2.5 py-1.5 text-[11px] text-sis truncate"
+          style={fullscreen ? { paddingBottom: "env(safe-area-inset-bottom)" } : undefined}
+        >
           ↗ {junctionName}
         </div>
       </div>

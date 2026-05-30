@@ -64,7 +64,22 @@ export default function PanelHome() {
               totalDurationS={route.duration}
             />
           </div>
-          <div className="animate-fade-in-up delay-2">
+          {/* Harita + şerit kararı — sıradaki manevranın hemen altında, asıl odak */}
+          {activeJunction && (
+            <div className="animate-fade-in-up delay-2">
+              <LaneCard
+                junction={activeJunction.j}
+                liveDistanceM={activeJunction.distanceM}
+                destinationLabel={destination?.label}
+                userLng={live?.lng}
+                userLat={live?.lat}
+                navigating={navigating}
+                routeGeometry={route?.geometry}
+                maneuverLngLat={nextManeuver?.step.maneuver.location}
+              />
+            </div>
+          )}
+          <div className="animate-fade-in-up delay-3">
             <UpcomingSteps />
           </div>
           <div className="animate-fade-in-up delay-3">
@@ -76,25 +91,28 @@ export default function PanelHome() {
         </>
       )}
 
-      <div className="animate-fade-in-up delay-2">
-        {activeJunction ? (
-          <LaneCard
-            junction={activeJunction.j}
-            liveDistanceM={activeJunction.distanceM}
-            destinationLabel={destination?.label}
-            userLng={live?.lng}
-            userLat={live?.lat}
-            navigating={navigating}
-            routeGeometry={route?.geometry}
-            maneuverLngLat={nextManeuver?.step.maneuver.location}
-          />
-        ) : (
-          <NoJunctionCard
-            hasLive={!!live}
-            hasDestination={!!destination}
-          />
-        )}
-      </div>
+      {/* Rota yokken: ya yaklaşan kavşak ya da uyarı kartı */}
+      {!nextManeuver && (
+        <div className="animate-fade-in-up delay-2">
+          {activeJunction ? (
+            <LaneCard
+              junction={activeJunction.j}
+              liveDistanceM={activeJunction.distanceM}
+              destinationLabel={destination?.label}
+              userLng={live?.lng}
+              userLat={live?.lat}
+              navigating={navigating}
+              routeGeometry={route?.geometry}
+              maneuverLngLat={undefined}
+            />
+          ) : (
+            <NoJunctionCard
+              hasLive={!!live}
+              hasDestination={!!destination}
+            />
+          )}
+        </div>
+      )}
     </>
   );
 }
