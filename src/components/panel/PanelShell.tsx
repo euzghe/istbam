@@ -116,7 +116,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
-  // OSRM rotası
+  // OSRM rotası — AbortController + finally + timeout
   useEffect(() => {
     if (!live || !destination) {
       setRoute(null);
@@ -136,13 +136,16 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     lastRouteFetchRef.current = { lng: live.lng, lat: live.lat, destKey };
     setRouteLoading(true);
     setRouteError(null);
-    let alive = true;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12_000);
+
     fetch(
-      `/api/route?fromLng=${live.lng}&fromLat=${live.lat}&toLng=${destination.lng}&toLat=${destination.lat}`
+      `/api/route?fromLng=${live.lng}&fromLat=${live.lat}&toLng=${destination.lng}&toLat=${destination.lat}`,
+      { signal: controller.signal }
     )
       .then((r) => r.json())
       .then((d) => {
-        if (!alive) return;
         if (d?.error) {
           setRoute(null);
           setRouteError(d.error);
@@ -150,16 +153,27 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           setRoute(d as OsrmRoute);
           setRouteError(null);
         }
-        setRouteLoading(false);
       })
-      .catch((e) => {
-        if (!alive) return;
+      .catch((e: unknown) => {
+        const name = (e as { name?: string })?.name;
+        if (name === "AbortError") {
+          // Yeni fetch tetiklendi veya timeout — eski hata yazma
+          return;
+        }
         setRoute(null);
-        setRouteError(String(e?.message ?? e));
+        setRouteError(
+          String((e as { message?: string })?.message ?? e ?? "Bilinmeyen hata")
+        );
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
+        // Her durumda loading sonlandır — sonsuz spinner olmasın
         setRouteLoading(false);
       });
+
     return () => {
-      alive = false;
+      clearTimeout(timeoutId);
+      controller.abort();
     };
   }, [live?.lng, live?.lat, destination?.lng, destination?.lat]);
 
@@ -410,15 +424,29 @@ function TopBar({
   }
 
   function submitSearch() {
-    // Enter veya ara butonu → ilk sonucu seç
+    // 1. Popüler eşleşmesi varsa onu seç (en hızlı)
     if (popularMatches.length > 0) {
       pickPopular(popularMatches[0]);
       return;
     }
+    // 2. Nominatim sonuçları varsa ilkini seç
     if (hits.length > 0) {
       pickHit(hits[0]);
       return;
     }
+    // 3. Henüz sonuç yok ama 2+ karakter var — beklemeden hemen ara
+    const q = query.trim();
+    if (q.length < 2) return;
+    setSearching(true);
+    fetch(`/api/search?q=${encodeURIComponent(q)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const items: GeoHit[] = d.items ?? [];
+        setHits(items);
+        if (items.length > 0) pickHit(items[0]);
+        setSearching(false);
+      })
+      .catch(() => setSearching(false));
   }
 
   return (
@@ -500,14 +528,12 @@ function TopBar({
             )}
             <button
               type="submit"
-              disabled={
-                popularMatches.length === 0 &&
-                hits.length === 0
-              }
+              disabled={query.trim().length < 2}
               className="shrink-0 rounded-full bg-vapur text-bogaz-deep font-bold text-xs px-3 py-1.5 hover:bg-vapur-soft transition disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Ara"
             >
-              🔍 Ara
+              <span className="sm:hidden">🔍</span>
+              <span className="hidden sm:inline">🔍 Ara</span>
             </button>
           </form>
 
@@ -610,14 +636,17 @@ function TopBar({
 
         <button
           onClick={onOpenMap}
-          className="inline-flex items-center gap-1.5 rounded-full bg-vapur text-bogaz-deep font-semibold text-xs px-3 py-1.5 hover:bg-vapur-soft transition"
+          className="inline-flex items-center justify-center rounded-full bg-vapur text-bogaz-deep font-semibold text-xs size-9 sm:size-auto sm:px-3 sm:py-1.5 hover:bg-vapur-soft transition shrink-0"
+          aria-label="Trafik haritası"
         >
           <span>🗺</span>
-          <span className="hidden sm:inline">Harita</span>
+          <span className="hidden sm:inline ml-1.5">Harita</span>
         </button>
 
-        <VoiceNavigation />
-        <ThemeToggle variant="light-bar" />
+        <div className="hidden md:flex items-center gap-2">
+          <VoiceNavigation />
+          <ThemeToggle variant="light-bar" />
+        </div>
       </div>
     </header>
   );

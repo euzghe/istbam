@@ -29,7 +29,7 @@ export function Logo({ className, size = 28, variant = "ink" }: LogoProps) {
         />
       </svg>
       <span
-        className="font-display font-semibold tracking-tight"
+        className="font-display font-semibold tracking-tight hidden xs:inline sm:inline"
         style={{
           color: variant === "ink" ? "#0a1d3a" : "#f6f2e9",
           fontSize: size * 0.7,
