@@ -313,28 +313,59 @@ export function NaviMini({
   useEffect(() => {
     userMarkerRef.current?.setLngLat([uLng, uLat]);
     const map = mapRef.current;
-    if (map && followMode && live && routeGeometry) {
-      const head = bearing(
-        { lng: uLng, lat: uLat },
-        { lng: focusLng, lat: focusLat }
-      );
-      // Pitch/zoom korunsun, sadece center + bearing yumuşak güncelle
-      map.easeTo({
-        center: [uLng, uLat],
-        bearing: head,
-        pitch: 65,
-        zoom: 17.5,
-        duration: 500,
-      });
+    // Konum varsa ve takip aktifse haritayı kullanıcıya odakla.
+    // Eski sürüm route geometrisi de istiyordu — bu nedenle hedef yokken
+    // veya rota gelmeden konum ilerlemiyordu. Artık şart değil.
+    if (map && followMode && live) {
+      const hasNav = hasJunction && routeGeometry != null;
+      if (hasNav) {
+        // Navigasyon modu: arabanın arkasından eğimli yakın takip
+        const head = bearing(
+          { lng: uLng, lat: uLat },
+          { lng: focusLng, lat: focusLat },
+        );
+        map.easeTo({
+          center: [uLng, uLat],
+          bearing: head,
+          pitch: 65,
+          zoom: 17.5,
+          duration: 500,
+        });
+      } else {
+        // Idle/boş: kuzey-yukarı düz harita, kullanıcıyı merkezde tut
+        map.easeTo({
+          center: [uLng, uLat],
+          zoom: 16,
+          pitch: 0,
+          bearing: 0,
+          duration: 500,
+        });
+      }
     }
-  }, [uLng, uLat, followMode, focusLng, focusLat, live, routeGeometry]);
+  }, [uLng, uLat, followMode, focusLng, focusLat, live, routeGeometry, hasJunction]);
 
   useEffect(() => {
     focusMarkerRef.current?.setLngLat([focusLng, focusLat]);
   }, [focusLng, focusLat]);
 
   function toggleMode() {
-    setFollowMode((v) => !v);
+    const next = !followMode;
+    setFollowMode(next);
+    // Yakın takibe geçtiğin anda haritayı hemen kullanıcıya odakla —
+    // bir sonraki GPS tick'ini bekleme.
+    const map = mapRef.current;
+    if (next && map && live) {
+      const hasNav = hasJunction && routeGeometry != null;
+      map.easeTo({
+        center: [uLng, uLat],
+        zoom: hasNav ? 17.5 : 16,
+        pitch: hasNav ? 65 : 0,
+        bearing: hasNav
+          ? bearing({ lng: uLng, lat: uLat }, { lng: focusLng, lat: focusLat })
+          : 0,
+        duration: 450,
+      });
+    }
   }
 
   // Tam ekran modunda overlay sarmalı, inline modda kart kabuğu.
@@ -353,9 +384,26 @@ export function NaviMini({
       <div className={frameClass}>
         <div ref={containerRef} className={canvasClass} />
 
+        {/* Tam ekran modunda en üstte sabit, görmezden gelemeyeceğin Kapat butonu.
+            Safe-area inset ile notch'lu cihazlarda da rahat. */}
+        {fullscreen && (
+          <button
+            onClick={() => setFullscreen(false)}
+            className="absolute z-20 left-3 right-3 mx-auto top-0 flex items-center justify-center gap-2 rounded-b-2xl bg-vapur text-bogaz-deep font-bold text-sm py-3 shadow-lg active:bg-vapur-soft transition"
+            style={{
+              maxWidth: 280,
+              paddingTop: "calc(env(safe-area-inset-top) + 12px)",
+            }}
+            aria-label="Tam ekrandan çık"
+          >
+            <span className="text-lg leading-none">✕</span>
+            <span>TAM EKRANDAN ÇIK</span>
+          </button>
+        )}
+
         <div
           className={`absolute left-2 flex items-center gap-1.5 ${
-            fullscreen ? "top-3" : "top-2"
+            fullscreen ? "top-20" : "top-2"
           }`}
           style={fullscreen ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
         >
@@ -386,9 +434,8 @@ export function NaviMini({
 
         <div
           className={`absolute right-2 flex items-center gap-1.5 ${
-            fullscreen ? "top-3" : "top-2"
+            fullscreen ? "top-20" : "top-2"
           }`}
-          style={fullscreen ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
         >
           <button
             onClick={toggleMode}
@@ -405,14 +452,16 @@ export function NaviMini({
           >
             {followMode ? "🎯 Yakın takip" : "🗺 Genel bakış"}
           </button>
-          <button
-            onClick={() => setFullscreen((v) => !v)}
-            className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 backdrop-blur transition bg-bogaz-deep/85 text-sis hover:bg-bogaz-deep ring-1 ring-sis/15"
-            title={fullscreen ? "Tam ekrandan çık (Esc)" : "Tam ekrana geç"}
-            aria-label={fullscreen ? "Tam ekrandan çık" : "Tam ekrana geç"}
-          >
-            {fullscreen ? "✕ Çık" : "⛶ Tam ekran"}
-          </button>
+          {!fullscreen && (
+            <button
+              onClick={() => setFullscreen(true)}
+              className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 backdrop-blur transition bg-bogaz-deep/85 text-sis hover:bg-bogaz-deep ring-1 ring-sis/15"
+              title="Tam ekrana geç"
+              aria-label="Tam ekrana geç"
+            >
+              ⛶ Tam ekran
+            </button>
+          )}
           {distanceM != null && hasJunction && (
             <span className="bg-vapur text-bogaz-deep text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1">
               {distanceM < 1000

@@ -112,7 +112,8 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
         setGeoError(null);
       },
       (err) => setGeoError(err.message),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+      // maximumAge=1000: arabada 5sn eski konum çok geç kalıyordu, neredeyse anlık olsun
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
     );
     return () => navigator.geolocation.clearWatch(id);
   }, []);
