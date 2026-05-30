@@ -7,6 +7,7 @@ import type { Route as OsrmRoute, RouteStep } from "@/lib/route-source";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MapOverlay } from "./MapOverlay";
+import { TrafficMapOverlay } from "./TrafficMapOverlay";
 import { SideNav } from "./SideNav";
 import { IstanbulBackdrop } from "./IstanbulBackdrop";
 import { VoiceNavigation } from "./VoiceNavigation";
@@ -45,6 +46,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [mapTitle, setMapTitle] = useState<string | undefined>();
+  const [trafficMapOpen, setTrafficMapOpen] = useState(false);
   const [isparks, setIsparks] = useState<IsparkLive[]>([]);
   const [isparkLoading, setIsparkLoading] = useState(true);
   // Varsayılan kapalı — mount sonrası ekran boyutuna göre güncellenir
@@ -210,13 +212,20 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     nextManeuver?.distM,
   ]);
 
+  // Top bar 🗺 → trafik haritası
+  // İsparkCard "Tümünü haritada gör" → ispark haritası (openMapForIspark veya
+  // boş id ile aynı modal)
   function openMapAll() {
+    setTrafficMapOpen(true);
+  }
+
+  function openIsparkMap() {
     setMapTitle(
       live
         ? "Konumun çevresi"
         : destination
         ? `${destination.label} çevresi`
-        : "İSPARK ve Kavşaklar"
+        : "İSPARK Konumları"
     );
     setSelectedIsparkId(undefined);
     setMapOpen(true);
@@ -239,7 +248,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       isparkLoading,
       activeJunction,
       nearestIsparks,
-      openMapAll,
+      openMapAll: openIsparkMap,
       openMapForIspark,
       navigating: !!destination,
       route,
@@ -302,6 +311,13 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           setSelectedIsparkId={setSelectedIsparkId}
           title={mapTitle}
           live={live ? { lng: live.lng, lat: live.lat } : undefined}
+        />
+
+        <TrafficMapOverlay
+          open={trafficMapOpen}
+          onClose={() => setTrafficMapOpen(false)}
+          live={live ? { lng: live.lng, lat: live.lat } : undefined}
+          route={route}
         />
       </div>
     </PanelContext.Provider>
