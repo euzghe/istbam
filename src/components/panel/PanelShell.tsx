@@ -21,6 +21,7 @@ import {
 import type { GeoHit } from "@/lib/geocode-source";
 import type { IsparkLive } from "@/lib/ispark-source";
 import { haversineKm } from "@/lib/geo";
+import { POPULAR_PLACES, searchPopular, type PopularPlace } from "@/data/popular-places";
 
 export function PanelShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -147,21 +148,27 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
 
   const upcomingDecisions = useMemo<{ step: RouteStep; distM: number }[]>(() => {
     if (!route || !live) return [];
-    const list: { step: RouteStep; distM: number }[] = [];
+    const decisions: { step: RouteStep; distM: number }[] = [];
+    let firstNonDepart: { step: RouteStep; distM: number } | null = null;
     for (let i = 0; i < route.steps.length; i++) {
       const step = route.steps[i];
       if (step.maneuver.type === "depart") continue;
-      if (!DECISION_TYPES.has(step.maneuver.type)) continue;
       const [mlng, mlat] = step.maneuver.location;
       const distM = Math.round(
         haversineKm(live, { lng: mlng, lat: mlat }) * 1000
       );
       if (distM < 5) continue;
-      list.push({ step, distM });
-      if (list.length >= 4) break;
+      if (!firstNonDepart) firstNonDepart = { step, distM };
+      if (!DECISION_TYPES.has(step.maneuver.type)) continue;
+      decisions.push({ step, distM });
+      if (decisions.length >= 4) break;
     }
-    list.sort((a, b) => a.distM - b.distM);
-    return list;
+    // Karar yoksa ilk anlamlı adımı göster ki kullanıcı boş ekran görmesin
+    if (decisions.length === 0 && firstNonDepart) {
+      decisions.push(firstNonDepart);
+    }
+    decisions.sort((a, b) => a.distM - b.distM);
+    return decisions;
   }, [route, live?.lng, live?.lat]);
 
   const nextManeuver = upcomingDecisions[0] ?? null;
@@ -347,7 +354,10 @@ function TopBar({
   const [hits, setHits] = useState<GeoHit[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // Nominatim debounced arama
+  // Popüler yerler — anında filtre (debounce yok)
+  const popularMatches = useMemo(() => searchPopular(query, 8), [query]);
+
+  // Nominatim debounced arama (popüler az ya da hiç eşleşmediğinde değerli)
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
@@ -366,6 +376,30 @@ function TopBar({
     }, 350);
     return () => clearTimeout(id);
   }, [query]);
+
+  function pickPopular(p: PopularPlace) {
+    setDestination({ label: p.label, lng: p.lng, lat: p.lat });
+    setQuery("");
+    setOpen(false);
+  }
+
+  function pickHit(h: GeoHit) {
+    setDestination({ label: h.label, lng: h.lng, lat: h.lat });
+    setQuery("");
+    setOpen(false);
+  }
+
+  function submitSearch() {
+    // Enter veya ara butonu → ilk sonucu seç
+    if (popularMatches.length > 0) {
+      pickPopular(popularMatches[0]);
+      return;
+    }
+    if (hits.length > 0) {
+      pickHit(hits[0]);
+      return;
+    }
+  }
 
   return (
     <header className="bg-bogaz-deep text-sis px-4 py-3 shadow-md shrink-0 relative z-50">
@@ -405,7 +439,13 @@ function TopBar({
         </div>
 
         <div className="relative flex-1 max-w-xl">
-          <div className="flex items-center gap-3 bg-sis/8 hover:bg-sis/12 transition rounded-full px-4 py-2 ring-1 ring-sis/15">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitSearch();
+            }}
+            className="flex items-center gap-2 bg-sis/8 hover:bg-sis/12 transition rounded-full pl-4 pr-1 py-1 ring-1 ring-sis/15"
+          >
             <span className="text-vapur text-sm">→</span>
             <input
               type="text"
@@ -416,67 +456,121 @@ function TopBar({
               }}
               onFocus={() => setOpen(true)}
               onBlur={() => setTimeout(() => setOpen(false), 200)}
-              placeholder="Adres ara: Sultanahmet, Bağdat Cd. 245, FSM…"
-              className="flex-1 bg-transparent outline-none text-sm placeholder:text-sis/50"
+              placeholder="Ara: Kadıköy, Üsküdar, Bağdat Cd…"
+              enterKeyHint="search"
+              className="flex-1 bg-transparent outline-none text-sm placeholder:text-sis/50 min-w-0"
             />
             {searching && (
-              <span className="text-[10px] text-sis/50 shrink-0">aranıyor…</span>
+              <span className="text-[10px] text-sis/50 shrink-0 hidden sm:inline">
+                aranıyor…
+              </span>
             )}
             {destination && !query && (
               <button
+                type="button"
                 onClick={() => {
                   setDestination(null);
                   setQuery("");
                 }}
-                className="text-xs text-sis/60 hover:text-vapur transition shrink-0"
+                className="text-xs text-sis/60 hover:text-vapur transition shrink-0 px-1.5"
                 aria-label="Hedefi temizle"
               >
                 ×
               </button>
             )}
-          </div>
+            <button
+              type="submit"
+              disabled={
+                popularMatches.length === 0 &&
+                hits.length === 0
+              }
+              className="shrink-0 rounded-full bg-vapur text-bogaz-deep font-bold text-xs px-3 py-1.5 hover:bg-vapur-soft transition disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Ara"
+            >
+              🔍 Ara
+            </button>
+          </form>
 
-          {open && (hits.length > 0 || (query.length >= 2 && !searching)) && (
+          {open && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-card text-on rounded-card ring-1 ring-line shadow-xl shadow-bogaz-deep/20 max-h-96 overflow-y-auto z-30">
-              {hits.length === 0 && query.length >= 2 && !searching ? (
-                <div className="px-4 py-4 text-sm text-on-mute">
-                  Sonuç yok — başka bir adres dene.
-                </div>
-              ) : (
-                hits.map((h) => (
-                  <button
-                    key={h.id}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      setDestination({
-                        label: h.label,
-                        lng: h.lng,
-                        lat: h.lat,
-                      });
-                      setQuery("");
-                      setOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 hover:bg-chip transition flex items-center justify-between border-b border-line last:border-0"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-on truncate">
-                        {h.label}
+              {/* Popüler yerler önce */}
+              {popularMatches.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-[9px] uppercase tracking-widest text-cini font-bold bg-cini/8 border-b border-line">
+                    Popüler
+                  </div>
+                  {popularMatches.map((p) => (
+                    <button
+                      key={`p-${p.label}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickPopular(p)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-chip transition flex items-center justify-between border-b border-line last:border-0"
+                    >
+                      <div className="min-w-0 flex items-center gap-2">
+                        <span className="text-base">{kindEmoji(p.kind)}</span>
+                        <span className="text-sm font-semibold text-on truncate">
+                          {p.label}
+                        </span>
                       </div>
-                      {h.detail && (
-                        <div className="text-[10px] text-on-mute truncate">
-                          {h.detail}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-on-mute uppercase tracking-wider shrink-0 ml-2">
-                      {h.type}
-                    </span>
-                  </button>
-                ))
+                      <span className="text-[10px] text-on-mute uppercase tracking-wider shrink-0 ml-2">
+                        {p.kind === "ilce"
+                          ? "İlçe"
+                          : p.kind === "mahalle"
+                          ? "Mahalle"
+                          : p.kind === "ulasim"
+                          ? "Ulaşım"
+                          : "Yer"}
+                      </span>
+                    </button>
+                  ))}
+                </>
               )}
-              <div className="px-3 py-1.5 text-[9px] text-on-mute uppercase tracking-widest border-t border-line bg-chip/40">
-                Arama: OpenStreetMap Nominatim (canlı)
-              </div>
+
+              {/* Nominatim sonuçları sonra */}
+              {hits.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-[9px] uppercase tracking-widest text-on-mute font-bold bg-chip/50 border-b border-line">
+                    Adres ara
+                  </div>
+                  {hits.map((h) => (
+                    <button
+                      key={h.id}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickHit(h)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-chip transition flex items-center justify-between border-b border-line last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-on truncate">
+                          {h.label}
+                        </div>
+                        {h.detail && (
+                          <div className="text-[10px] text-on-mute truncate">
+                            {h.detail}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-on-mute uppercase tracking-wider shrink-0 ml-2">
+                        {h.type}
+                      </span>
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {popularMatches.length === 0 &&
+                hits.length === 0 &&
+                query.length >= 2 &&
+                !searching && (
+                  <div className="px-4 py-4 text-sm text-on-mute">
+                    Sonuç yok — başka bir kelime dene.
+                  </div>
+                )}
+
+              {query.length < 2 && popularMatches.length === 0 && (
+                <div className="px-4 py-4 text-sm text-on-mute">
+                  2 karakterden başla — Kadıköy, Üsküdar, FSM…
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -494,4 +588,17 @@ function TopBar({
       </div>
     </header>
   );
+}
+
+function kindEmoji(k: PopularPlace["kind"]) {
+  switch (k) {
+    case "ilce":
+      return "🏙";
+    case "mahalle":
+      return "📍";
+    case "ulasim":
+      return "🚉";
+    case "landmark":
+      return "🏛";
+  }
 }
