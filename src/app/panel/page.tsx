@@ -1,126 +1,69 @@
 "use client";
 
-import { usePanel } from "@/components/panel/PanelContext";
-import { LaneCard } from "@/components/panel/cards/LaneCard";
-import {
-  NoJunctionCard,
-  LocationBanner,
-} from "@/components/panel/sections/NoJunctionCard";
-import { StatusStrip } from "@/components/panel/sections/StatusStrip";
+import Link from "next/link";
 import { PageHeader } from "@/components/panel/sections/PageHeader";
-import { NextManeuverCard } from "@/components/panel/sections/NextManeuverCard";
-import { UpcomingSteps } from "@/components/panel/sections/UpcomingSteps";
-import { FavoritesQuick } from "@/components/panel/sections/FavoritesQuick";
-import { SpeedWidget } from "@/components/panel/sections/SpeedWidget";
-import { RouteTollsCard } from "@/components/panel/sections/RouteTollsCard";
-import { RouteTrafficCard } from "@/components/panel/sections/RouteTrafficCard";
-import { RouteStatusCard } from "@/components/panel/sections/RouteStatusCard";
 import { CityPulseCard } from "@/components/panel/sections/CityPulseCard";
 import { BogazCrossingCard } from "@/components/panel/sections/BogazCrossingCard";
+import { FavoritesQuick } from "@/components/panel/sections/FavoritesQuick";
 
-export default function PanelHome() {
-  const {
-    activeJunction,
-    destination,
-    live,
-    geoError,
-    navigating,
-    nextManeuver,
-    route,
-  } = usePanel();
+// Ana sayfa hızlı erişim kartları — sürücünün en sık ihtiyaç duydukları.
+const QUICK = [
+  { href: "/panel/serit-rehberi", icon: "🧭", label: "Şerit Rehberi", hint: "Yaklaşan kavşak" },
+  { href: "/panel/trafik", icon: "🚦", label: "Trafik Haritası", hint: "Yandex canlı" },
+  { href: "/panel/ispark", icon: "🅿", label: "İSPARK", hint: "Canlı doluluk" },
+  { href: "/panel/vapur", icon: "⛴", label: "Vapur", hint: "Arabalı + şehir hatları" },
+  { href: "/panel/akaryakit", icon: "⛽", label: "Akaryakıt", hint: "Fiyat + istasyon" },
+  { href: "/panel/arabam", icon: "🚗", label: "Arabam", hint: "Park ettiğim yer" },
+];
 
+export default function AnaSayfa() {
   return (
     <>
       <PageHeader
-        icon="🧭"
-        eyebrow={navigating ? "Yönlendirme aktif" : "Sürüş anı"}
-        title="Şerit Rehberi"
-        description={
-          navigating
-            ? `"${destination?.label}" için yaklaşan kavşakta hangi şeritte olman gerektiğini görürsün.`
-            : "Yaklaştığın kavşaktaki şerit kararını canlı veriyle gösterir."
-        }
-        accent={navigating ? "vapur" : "cini"}
+        icon="🩺"
+        eyebrow="Ana sayfa"
+        title="Şehrin Nabzı"
+        description="İstanbul şu an nasıl? Trafik, hava, köprü, İSPARK, yakıt — tek bakışta gerçek veri."
+        accent="vapur"
       />
+
       <div className="animate-fade-in-up">
         <CityPulseCard />
       </div>
+
       <div className="animate-fade-in-up delay-1">
         <BogazCrossingCard />
       </div>
-      <StatusStrip />
-      <RouteStatusCard />
-      <SpeedWidget />
-      <FavoritesQuick />
-      {!live && (
-        <div className="animate-fade-in-up delay-1">
-          <LocationBanner
-            geoError={geoError}
-            hasDestination={!!destination}
-          />
-        </div>
-      )}
 
-      {nextManeuver && route && (
-        <>
-          <div className="animate-fade-in-up delay-1">
-            <NextManeuverCard
-              arrow={nextManeuver.step.maneuver.arrow}
-              instruction={nextManeuver.step.maneuver.instruction}
-              distanceM={nextManeuver.distM}
-              totalDistanceM={route.distance}
-              totalDurationS={route.duration}
-            />
+      <section className="animate-fade-in-up delay-2 rounded-card border border-line bg-card overflow-hidden">
+        <header className="px-5 pt-4 pb-2">
+          <div className="text-[10px] uppercase tracking-widest text-cini-soft font-semibold">
+            Hızlı erişim
           </div>
-          {/* Harita + şerit kararı — sıradaki manevranın hemen altında, asıl odak */}
-          {activeJunction && (
-            <div className="animate-fade-in-up delay-2">
-              <LaneCard
-                junction={activeJunction.j}
-                liveDistanceM={activeJunction.distanceM}
-                destinationLabel={destination?.label}
-                userLng={live?.lng}
-                userLat={live?.lat}
-                navigating={navigating}
-                routeGeometry={route?.geometry}
-                maneuverLngLat={nextManeuver?.step.maneuver.location}
-              />
-            </div>
-          )}
-          <div className="animate-fade-in-up delay-3">
-            <UpcomingSteps />
-          </div>
-          <div className="animate-fade-in-up delay-3">
-            <RouteTrafficCard />
-          </div>
-          <div className="animate-fade-in-up delay-4">
-            <RouteTollsCard />
-          </div>
-        </>
-      )}
-
-      {/* Rota yokken: ya yaklaşan kavşak ya da uyarı kartı */}
-      {!nextManeuver && (
-        <div className="animate-fade-in-up delay-2">
-          {activeJunction ? (
-            <LaneCard
-              junction={activeJunction.j}
-              liveDistanceM={activeJunction.distanceM}
-              destinationLabel={destination?.label}
-              userLng={live?.lng}
-              userLat={live?.lat}
-              navigating={navigating}
-              routeGeometry={route?.geometry}
-              maneuverLngLat={undefined}
-            />
-          ) : (
-            <NoJunctionCard
-              hasLive={!!live}
-              hasDestination={!!destination}
-            />
-          )}
+          <h2 className="mt-1 font-display text-lg font-semibold">
+            Nereye gidiyorsun?
+          </h2>
+        </header>
+        <div className="px-5 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          {QUICK.map((q) => (
+            <Link
+              key={q.href}
+              href={q.href}
+              className="rounded-xl bg-sis/5 ring-1 ring-line px-3 py-3 hover:bg-vapur/10 hover:ring-vapur/30 transition group"
+            >
+              <div className="text-2xl">{q.icon}</div>
+              <div className="mt-1 font-display font-semibold text-sm leading-tight">
+                {q.label}
+              </div>
+              <div className="text-[11px] text-on-mute mt-0.5">{q.hint}</div>
+            </Link>
+          ))}
         </div>
-      )}
+      </section>
+
+      <div className="animate-fade-in-up delay-3">
+        <FavoritesQuick />
+      </div>
     </>
   );
 }

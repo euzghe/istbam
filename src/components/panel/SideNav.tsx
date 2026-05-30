@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export type SectionId =
+  | "ana"
   | "lane"
   | "ispark"
   | "trafik"
@@ -34,9 +35,15 @@ type Group = { title: string; items: Item[] };
 
 export const SECTIONS: Group[] = [
   {
+    title: "Genel",
+    items: [
+      { id: "ana", href: "/panel", label: "Ana Sayfa", icon: "🩺", hint: "Şehrin nabzı" },
+    ],
+  },
+  {
     title: "Sürüş",
     items: [
-      { id: "lane", href: "/panel", label: "Şerit Rehberi", icon: "🧭", hint: "Yaklaşan kavşak" },
+      { id: "lane", href: "/panel/serit-rehberi", label: "Şerit Rehberi", icon: "🧭", hint: "Yaklaşan kavşak" },
       { id: "trafik", href: "/panel/trafik", label: "Trafik", icon: "🚦", hint: "Şehir + köprüler" },
       { id: "uyari", href: "/panel/uyari", label: "Yol Uyarısı", icon: "⚠", hint: "Kapatma / kaza" },
     ],

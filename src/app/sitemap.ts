@@ -4,6 +4,7 @@ const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://istbam.vercel.app";
 
 const PANEL_ROUTES = [
   "",
+  "serit-rehberi",
   "ispark",
   "trafik",
   "vapur",
