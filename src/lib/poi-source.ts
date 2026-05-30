@@ -138,6 +138,23 @@ function carWashCategory(tags: Record<string, string>): {
   const automated =
     (tags["car_wash"] || "").toLowerCase().includes("automated") ||
     (tags["self_service"] || "").toLowerCase() === "yes";
+
+  // Benzin istasyonu içindeki yıkama — Shell, BP, OPET, PO vs.
+  if (tags.amenity === "fuel") {
+    const fuelBrand =
+      tags.brand || tags.operator || tags.name?.split(" ")[0] || "";
+    const pretty = fuelBrand
+      ? fuelBrand
+          .split(/[\s_-]+/)
+          .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : ""))
+          .join(" ")
+      : "Benzinlik";
+    return {
+      category: `${pretty} · benzinlik yıkama`,
+      categoryKey: "benzinlik",
+    };
+  }
+
   if (automated) {
     return { category: "Self-servis / Otomatik", categoryKey: "self" };
   }
@@ -212,23 +229,28 @@ function chargingCategory(tags: Record<string, string>): {
   return { category: "AC Şarj", categoryKey: "ac" };
 }
 
-function osmFilter(type: PoiType): string {
+// Bir POI tipi birden fazla Overpass filtresi gerektirebilir (örn. yıkama:
+// hem amenity=car_wash, hem amenity=fuel+car_wash=yes).
+function osmFilters(type: PoiType): string[] {
   switch (type) {
     case "hastane":
-      return `["amenity"~"^(hospital|clinic)$"]`;
+      return [`["amenity"~"^(hospital|clinic)$"]`];
     case "eczane":
-      return `["amenity"="pharmacy"]`;
+      return [`["amenity"="pharmacy"]`];
     case "avm":
-      return `["shop"="mall"]`;
+      return [`["shop"="mall"]`];
     case "sarj":
-      return `["amenity"="charging_station"]`;
+      return [`["amenity"="charging_station"]`];
     case "yikama":
-      return `["amenity"="car_wash"]`;
+      // 1) Müstakil oto yıkama, 2) Yıkaması olan benzin istasyonu
+      return [
+        `["amenity"="car_wash"]`,
+        `["amenity"="fuel"]["car_wash"]`,
+      ];
     case "taksi":
-      return `["amenity"="taxi"]`;
+      return [`["amenity"="taxi"]`];
     case "cekici":
-      // Çekici / kurtarma / yol yardım — car_repair çoğu zaman çekici de yapar
-      return `["amenity"~"^(car_repair|car_rental)$"]`;
+      return [`["amenity"~"^(car_repair|car_rental)$"]`];
   }
 }
 
@@ -280,12 +302,17 @@ export async function fetchPoi(
   lng: number,
   radiusMeters = 3000
 ): Promise<Poi[]> {
-  const filter = osmFilter(type);
+  const filters = osmFilters(type);
+  const body = filters
+    .flatMap((f) => [
+      `node(around:${radiusMeters},${lat},${lng})${f};`,
+      `way(around:${radiusMeters},${lat},${lng})${f};`,
+    ])
+    .join("\n      ");
   const query = `
     [out:json][timeout:25];
     (
-      node(around:${radiusMeters},${lat},${lng})${filter};
-      way(around:${radiusMeters},${lat},${lng})${filter};
+      ${body}
     );
     out tags center 400;
   `.trim();
@@ -295,12 +322,17 @@ export async function fetchPoi(
 
 // Tüm İstanbul (bbox sorgu, yüksek timeout + büyük limit)
 export async function fetchPoiIstanbul(type: PoiType): Promise<Poi[]> {
-  const filter = osmFilter(type);
+  const filters = osmFilters(type);
+  const body = filters
+    .flatMap((f) => [
+      `node${f}(${ISTANBUL_BBOX});`,
+      `way${f}(${ISTANBUL_BBOX});`,
+    ])
+    .join("\n      ");
   const query = `
     [out:json][timeout:90];
     (
-      node${filter}(${ISTANBUL_BBOX});
-      way${filter}(${ISTANBUL_BBOX});
+      ${body}
     );
     out tags center 2500;
   `.trim();
@@ -352,6 +384,8 @@ export function poiMarkerColor(type: PoiType, categoryKey: string): string {
         return "#2eb872"; // yeşil — self servis
       case "brand":
         return "#1d4b8f"; // mavi — markalı
+      case "benzinlik":
+        return "#f5a524"; // amber — benzin istasyonu yıkaması
       default:
         return "#2db7ab"; // turkuaz — genel
     }
