@@ -15,6 +15,8 @@ import { SpeedWidget } from "@/components/panel/sections/SpeedWidget";
 import { RouteTollsCard } from "@/components/panel/sections/RouteTollsCard";
 import { RouteTrafficCard } from "@/components/panel/sections/RouteTrafficCard";
 import { RouteStatusCard } from "@/components/panel/sections/RouteStatusCard";
+import { CityPulseCard } from "@/components/panel/sections/CityPulseCard";
+import { BogazCrossingCard } from "@/components/panel/sections/BogazCrossingCard";
 
 export default function PanelHome() {
   const {
@@ -40,6 +42,12 @@ export default function PanelHome() {
         }
         accent={navigating ? "vapur" : "cini"}
       />
+      <div className="animate-fade-in-up">
+        <CityPulseCard />
+      </div>
+      <div className="animate-fade-in-up delay-1">
+        <BogazCrossingCard />
+      </div>
       <StatusStrip />
       <RouteStatusCard />
       <SpeedWidget />

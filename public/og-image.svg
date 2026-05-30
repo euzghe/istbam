@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a1d3a"/>
+      <stop offset="55%" stop-color="#0f2d56"/>
+      <stop offset="100%" stop-color="#1a4a7a"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2db7ab" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#0a1d3a" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.7" cy="0.3" r="0.6">
+      <stop offset="0%" stop-color="#f5a524" stop-opacity="0.25"/>
+      <stop offset="60%" stop-color="#f5a524" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Boğaz silüet dalgaları -->
+  <path d="M0,500 Q200,460 400,490 T800,485 T1200,495 L1200,630 L0,630 Z"
+        fill="url(#sea)"/>
+  <path d="M0,530 Q300,505 600,520 T1200,525 L1200,630 L0,630 Z"
+        fill="#2db7ab" fill-opacity="0.15"/>
+
+  <!-- İstanbul silueti (cami kuleleri, köprü) -->
+  <g fill="#0a1d3a" fill-opacity="0.55">
+    <!-- Sultanahmet -->
+    <rect x="60" y="430" width="80" height="70"/>
+    <circle cx="100" cy="425" r="22"/>
+    <rect x="78" y="395" width="4" height="35"/>
+    <rect x="118" y="395" width="4" height="35"/>
+    <!-- Galata kulesi -->
+    <rect x="195" y="410" width="22" height="90"/>
+    <polygon points="195,410 206,390 217,410"/>
+    <!-- Apartmanlar -->
+    <rect x="240" y="445" width="60" height="55"/>
+    <rect x="305" y="430" width="50" height="70"/>
+    <rect x="360" y="450" width="70" height="50"/>
+    <!-- Köprü direği sağ -->
+    <rect x="780" y="380" width="14" height="125"/>
+    <rect x="820" y="380" width="14" height="125"/>
+    <!-- Süleymaniye sağ -->
+    <rect x="900" y="440" width="70" height="60"/>
+    <circle cx="935" cy="435" r="18"/>
+    <rect x="918" y="410" width="3" height="30"/>
+    <rect x="949" y="410" width="3" height="30"/>
+    <!-- Maslak gökdelenler -->
+    <rect x="1010" y="400" width="36" height="100"/>
+    <rect x="1055" y="380" width="42" height="120"/>
+    <rect x="1105" y="410" width="34" height="90"/>
+  </g>
+
+  <!-- Köprü kabloları -->
+  <g stroke="#f6f2e9" stroke-opacity="0.35" stroke-width="1.5" fill="none">
+    <path d="M787,380 Q807,330 827,380"/>
+    <line x1="800" y1="380" x2="800" y2="490"/>
+    <line x1="813" y1="380" x2="813" y2="490"/>
+    <line x1="820" y1="380" x2="820" y2="490"/>
+  </g>
+
+  <!-- Üst sol: küçük logo işareti (yol şeritleri) -->
+  <g transform="translate(80,80)">
+    <rect width="78" height="78" rx="20" fill="#f5a524"/>
+    <g stroke="#0a1d3a" stroke-width="6" stroke-linecap="round">
+      <line x1="22" y1="16" x2="22" y2="62"/>
+      <line x1="39" y1="16" x2="39" y2="62" stroke-dasharray="6 6"/>
+      <line x1="56" y1="16" x2="56" y2="62"/>
+    </g>
+  </g>
+
+  <!-- Başlık -->
+  <text x="180" y="135" font-family="Bricolage Grotesque, Georgia, serif"
+        font-size="84" font-weight="700" fill="#f6f2e9" letter-spacing="-2">
+    İstbam
+  </text>
+  <text x="180" y="180" font-family="Manrope, Helvetica, sans-serif"
+        font-size="26" font-weight="500" fill="#a9c0d8">
+    İst + arabam'ın bamı
+  </text>
+
+  <!-- Tagline -->
+  <text x="80" y="280" font-family="Bricolage Grotesque, Georgia, serif"
+        font-size="56" font-weight="600" fill="#f6f2e9" letter-spacing="-1">
+    İstanbul'da arabayla
+  </text>
+  <text x="80" y="345" font-family="Bricolage Grotesque, Georgia, serif"
+        font-size="56" font-weight="600" fill="#f5a524" letter-spacing="-1">
+    olanların yardımcısı
+  </text>
+
+  <!-- Feature pills -->
+  <g font-family="Manrope, Helvetica, sans-serif" font-size="22" font-weight="600">
+    <g transform="translate(80,395)">
+      <rect width="220" height="46" rx="23" fill="#f6f2e9" fill-opacity="0.12" stroke="#f6f2e9" stroke-opacity="0.25"/>
+      <text x="24" y="30" fill="#f6f2e9">🛣 Şerit Rehberi</text>
+    </g>
+    <g transform="translate(315,395)">
+      <rect width="190" height="46" rx="23" fill="#f6f2e9" fill-opacity="0.12" stroke="#f6f2e9" stroke-opacity="0.25"/>
+      <text x="24" y="30" fill="#f6f2e9">📍 İSPARK</text>
+    </g>
+    <g transform="translate(520,395)">
+      <rect width="220" height="46" rx="23" fill="#f6f2e9" fill-opacity="0.12" stroke="#f6f2e9" stroke-opacity="0.25"/>
+      <text x="24" y="30" fill="#f6f2e9">🌉 Boğaz Geçişi</text>
+    </g>
+    <g transform="translate(80,455)">
+      <rect width="190" height="46" rx="23" fill="#f6f2e9" fill-opacity="0.12" stroke="#f6f2e9" stroke-opacity="0.25"/>
+      <text x="24" y="30" fill="#f6f2e9">🚢 Vapur</text>
+    </g>
+    <g transform="translate(285,455)">
+      <rect width="220" height="46" rx="23" fill="#f6f2e9" fill-opacity="0.12" stroke="#f6f2e9" stroke-opacity="0.25"/>
+      <text x="24" y="30" fill="#f6f2e9">📡 Anlık Trafik</text>
+    </g>
+    <g transform="translate(520,455)">
+      <rect width="220" height="46" rx="23" fill="#f6f2e9" fill-opacity="0.12" stroke="#f6f2e9" stroke-opacity="0.25"/>
+      <text x="24" y="30" fill="#f6f2e9">⛽ Yakıt + HGS</text>
+    </g>
+  </g>
+</svg>
