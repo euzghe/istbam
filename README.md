@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# İstbam
 
-## Getting Started
+**İstanbul'da arabayla olanların yardımcısı.**
+"İst" (İstanbul) + "ara**bam**".
 
-First, run the development server:
+Şerit rehberi · İSPARK doluluk · trafik · köprü ücretleri · akaryakıt fiyatları · HGS tarifesi · arabalı vapur · acil yardım — hepsi tek panelde, gerçek API'lerle.
+
+---
+
+## Canlı veri kaynakları
+
+| Modül | Kaynak |
+|---|---|
+| Şerit rehberi (`turn:lanes`) | OpenStreetMap (Overpass API) |
+| Rota & navigasyon | OSRM (router.project-osrm.org) |
+| İSPARK (258 otopark, doluluk + tarife) | İBB Açık API |
+| Şehir trafik indeksi (5 dk aralık) | İBB TKM `TrafficIndexHistory` |
+| Akaryakıt istasyonları | OpenStreetMap (Overpass) |
+| Köprü/otoyol/tünel ücretleri | KGM + operatör resmi (manuel güncellenir) |
+| Akaryakıt fiyatları | EPDK + marka resmi sayfalar (manuel referans) |
+
+## Geliştirme
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Ana sayfa: <http://localhost:3000>
+- Panel: <http://localhost:3000/panel>
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Next.js 16 (App Router) + TypeScript
+- Tailwind CSS v4 + dinamik tema (light/dark)
+- MapLibre GL + OpenFreeMap (positron/dark)
+- Web Speech API (Türkçe sesli uyarı)
+- PWA (manifest + service worker, çevrimdışı çekirdek)
 
-## Learn More
+## Yapı
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+  app/
+    page.tsx               Ana sayfa (hero + tanıtım)
+    panel/                 Sürücü paneli (route-based)
+      layout.tsx           PanelShell (TopBar + SideNav + state context)
+      page.tsx             Şerit Rehberi (default)
+      ispark/page.tsx      İSPARK
+      trafik/page.tsx      Trafik & köprüler
+      akaryakit/page.tsx   Akaryakıt
+      hgs/page.tsx         HGS bakiye + tarife
+      yardim/page.tsx      Acil yardım & çekici
+      vapur/page.tsx       Arabalı vapur
+      uyari/page.tsx       Yol uyarısı
+      arabam/page.tsx      Park ettiğim yer
+    api/
+      lanes/route.ts       Overpass → turn:lanes
+      route/route.ts       OSRM → rota & step-by-step
+      ispark/route.ts      İBB → 258 otopark
+      ispark/[id]/route.ts İBB → tek otopark tam tarife
+      traffic/route.ts     İBB TKM → trafik indeksi
+      fuel/route.ts        Overpass → akaryakıt istasyonları
+  components/
+    panel/
+      PanelShell.tsx       Üst bar + sidebar + state context
+      PanelContext.tsx     React context
+      SideNav.tsx          Sol navigasyon (3 grup)
+      MapView.tsx          MapLibre overlay
+      MapOverlay.tsx       Tam ekran harita modal
+      NaviMini.tsx         Gömülü navi (gerçek route polyline)
+      IstanbulBackdrop.tsx Silik İstanbul siluetleri arka plan
+      cards/               Kartlar (Lane, İSPARK, Trafik, …)
+      sections/            Sayfa başlıkları + StatusStrip + NextManeuver
+  lib/
+    overpass.ts            OSM turn:lanes fetcher
+    route-source.ts        OSRM fetcher
+    ispark-source.ts       İBB İSPARK fetcher
+    traffic-source.ts      İBB TKM fetcher
+    fuel-source.ts         OSM amenity=fuel fetcher
+    geo.ts                 Haversine
+  data/                    Statik referans (junctions, bridges, hgs, ferries)
+public/
+  sw.js                    Service worker (cache stratejileri)
+  icon-*.png/svg           PWA ikonları
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Lisans
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT

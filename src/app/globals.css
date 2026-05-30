@@ -1,26 +1,216 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  /* Marka renkleri — modda değişmez */
+  --color-bogaz-deep: #0a1d3a;
+  --color-bogaz: #0f2e5e;
+  --color-bogaz-soft: #1d4b8f;
+  --color-cini: #2db7ab;
+  --color-cini-soft: #7fd1c9;
+  --color-vapur: #f5a524;
+  --color-vapur-soft: #ffd28a;
+  --color-vapur-red: #c84b4b;
+  --color-tas: #e9e4d4;
+  --color-sis: #f6f2e9;
+  --color-gece: #061327;
+  --color-mehtap: #ffdfa0;
+  --color-kuyum: #d4af37;
+
+  /* Statik referans renkler (legacy kullanım için) */
+  --color-ink: #0a1d3a;
+  --color-ink-soft: #3b4b65;
+  --color-ink-mute: #6f7c92;
+
+  /* Dinamik yüzey tokenları — modda değişir */
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-on: var(--on);
+  --color-on-soft: var(--on-soft);
+  --color-on-mute: var(--on-mute);
+  --color-line: var(--line);
+  --color-chip: var(--chip);
+
+  --font-display: var(--font-bricolage);
+  --font-sans: var(--font-manrope);
   --font-mono: var(--font-geist-mono);
+
+  --radius-card: 18px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Açık (gündüz) tema — Boğaz havası, serin slate */
+:root {
+  color-scheme: light;
+  --canvas: #eef3f8;
+  --card: #ffffff;
+  --card-2: #e3ebf3;
+  --on: #0a1d3a;
+  --on-soft: #3b4b65;
+  --on-mute: #6f7c92;
+  --line: rgba(10, 29, 58, 0.10);
+  --chip: rgba(10, 29, 58, 0.05);
+}
+
+/* Karanlık (gece sürüş) tema */
+.dark {
+  color-scheme: dark;
+  --canvas: #050d1a;
+  --card: #0c1e3a;
+  --card-2: #0a1830;
+  --on: #e8eaf0;
+  --on-soft: #b8c4d8;
+  --on-mute: #7d8aa3;
+  --line: rgba(232, 234, 240, 0.12);
+  --chip: rgba(10, 29, 58, 0.45);
+}
+
+html, body {
+  background: var(--canvas);
+  color: var(--on);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 280ms ease, color 280ms ease;
+}
+
+.bg-paper {
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--on) 7%, transparent) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.bg-bogaz {
+  background:
+    radial-gradient(ellipse at top, rgba(45, 183, 171, 0.25), transparent 60%),
+    linear-gradient(180deg, var(--color-bogaz-deep) 0%, var(--color-bogaz) 60%, var(--color-bogaz-soft) 100%);
+}
+
+.bg-cini-pattern {
+  background-color: var(--color-bogaz-deep);
+  background-image:
+    linear-gradient(135deg, rgba(45, 183, 171, 0.08) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(45, 183, 171, 0.08) 25%, transparent 25%),
+    linear-gradient(315deg, rgba(245, 165, 36, 0.06) 25%, transparent 25%),
+    linear-gradient(45deg, rgba(245, 165, 36, 0.06) 25%, transparent 25%);
+  background-size: 28px 28px;
+  background-position: 0 0, 0 0, 14px 14px, 14px 14px;
+}
+
+@keyframes drift {
+  0%   { transform: translateX(-10px); opacity: 0.4; }
+  50%  { transform: translateX(0px);   opacity: 0.7; }
+  100% { transform: translateX(10px);  opacity: 0.4; }
+}
+.drift { animation: drift 7s ease-in-out infinite; }
+
+@keyframes glide {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(20px, -6px); }
+}
+.glide { animation: glide 11s ease-in-out infinite; }
+
+@keyframes wave {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(-40px); }
+}
+.wave { animation: wave 18s linear infinite; }
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fade-in-up 360ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 280ms ease-out both; }
+
+/* Stagger delays */
+.delay-1 { animation-delay: 60ms; }
+.delay-2 { animation-delay: 120ms; }
+.delay-3 { animation-delay: 180ms; }
+.delay-4 { animation-delay: 240ms; }
+
+/* Sayfa arka planı — Boğaz parıltısı + İstanbul ipuçları (silhouette ayrı bileşen) */
+.bg-canvas-rich {
+  background-color: var(--canvas);
+  background-image:
+    radial-gradient(ellipse at top, color-mix(in srgb, var(--color-cini) 7%, transparent) 0%, transparent 45%),
+    radial-gradient(ellipse at bottom right, color-mix(in srgb, var(--color-vapur) 5%, transparent) 0%, transparent 55%);
+}
+.dark .bg-canvas-rich {
+  background-image:
+    radial-gradient(ellipse at top, color-mix(in srgb, var(--color-cini) 12%, transparent) 0%, transparent 45%),
+    radial-gradient(ellipse at bottom right, color-mix(in srgb, var(--color-vapur) 8%, transparent) 0%, transparent 55%);
+}
+
+/* "Düz bölüm" — kart hissi olmayan, sayfaya gömük bölüm konteyneri */
+.section-flat {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  ring-width: 0;
+}
+
+.lift {
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+.lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px -18px rgba(10, 29, 58, 0.35);
+}
+
+.maplibregl-ctrl-attrib-inner a {
+  color: var(--on-mute);
+}
+
+/* İSPARK popup — light + dark uyumlu */
+.maplibregl-popup.istbam-popup .maplibregl-popup-content {
+  background: var(--card);
+  color: var(--on);
+  border-radius: 14px;
+  padding: 14px 16px 14px 14px;
+  box-shadow: 0 12px 32px -10px rgba(10, 29, 58, 0.45);
+  border: 1px solid var(--line);
+}
+.maplibregl-popup.istbam-popup .maplibregl-popup-close-button {
+  font-size: 18px;
+  color: var(--on-mute);
+  padding: 4px 8px;
+}
+.maplibregl-popup.istbam-popup .maplibregl-popup-close-button:hover {
+  color: var(--color-vapur-red);
+  background: transparent;
+}
+.maplibregl-popup.istbam-popup .maplibregl-popup-tip {
+  border-top-color: var(--card);
+  border-bottom-color: var(--card);
+}
+.dark .maplibregl-popup.istbam-popup .maplibregl-popup-content {
+  color: #e8eaf0;
+}
+.dark .maplibregl-popup.istbam-popup .maplibregl-popup-content div {
+  color: inherit !important;
+}
+
+/* Karanlık modda harita kontrolleri ve attribution daha okunaklı olsun */
+.dark .maplibregl-ctrl-group {
+  background: var(--card);
+  color: var(--on);
+}
+.dark .maplibregl-ctrl-group button {
+  background: transparent;
+  filter: invert(0.85);
+}
+.dark .maplibregl-ctrl-attrib {
+  background: rgba(12, 30, 58, 0.85) !important;
+}
+.dark .maplibregl-ctrl-attrib-inner,
+.dark .maplibregl-ctrl-attrib-inner a {
+  color: var(--on-soft) !important;
 }
