@@ -2,8 +2,19 @@
 
 import { createContext, useContext } from "react";
 import type { IsparkLive } from "@/lib/ispark-source";
-import type { Junction } from "@/data/junctions";
 import type { Route as OsrmRoute, RouteStep } from "@/lib/route-source";
+
+// "Sentetik" kavşak — OSRM rotasındaki sıradaki karar noktasından oluşturulur.
+// Şerit rehberi bu noktanın lat/lng'sini OSM Overpass'a sorup turn:lanes alır.
+export type Junction = {
+  id: string;
+  name: string;
+  approach: string;
+  lng: number;
+  lat: number;
+  warnMeters: number;
+  lanes: never[]; // Demo veri kalmadı — hep boş, LaneCard OSM'den dolduruyor
+};
 
 export type LiveLocation = {
   lng: number;
@@ -16,13 +27,27 @@ export type Destination = {
   label: string;
   lng: number;
   lat: number;
-  junctionId?: string;
 };
 
 export type NextManeuver = {
   step: RouteStep;
   distM: number;
 };
+
+// "Karar" gerektiren manevra tipleri — şerit yönlendirmesi için anlamlı
+export const DECISION_TYPES = new Set([
+  "turn",
+  "fork",
+  "on ramp",
+  "off ramp",
+  "merge",
+  "roundabout",
+  "rotary",
+  "exit roundabout",
+  "exit rotary",
+  "end of road",
+  "arrive",
+]);
 
 export type PanelState = {
   live: LiveLocation | null;
@@ -38,6 +63,7 @@ export type PanelState = {
   navigating: boolean;
   route: OsrmRoute | null;
   nextManeuver: NextManeuver | null;
+  upcomingDecisions: NextManeuver[];
 };
 
 export const PanelContext = createContext<PanelState | null>(null);

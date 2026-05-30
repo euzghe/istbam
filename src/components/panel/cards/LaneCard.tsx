@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { type Junction, type Lane } from "@/data/junctions";
+import type { Junction } from "../PanelContext";
 import type { OsmLane, OsmLanesEmpty, OsmLanesResult } from "@/lib/overpass";
 import { turnArrow, turnLabelTr } from "@/lib/overpass";
 import { NaviMini } from "../NaviMini";
@@ -74,19 +74,27 @@ export function LaneCard({
     };
   }, [junction.id, junction.lat, junction.lng]);
 
-  // Unified lane'ler — OSM varsa OSM, yoksa demo
+  // Unified lane'ler — OSM canlı veya OSRM rotasından fallback
   const unified: UnifiedLane[] = useMemo(() => {
     if (osm && osm.lanes.length) return osm.lanes.map(osmToUnified);
-    return junction.lanes.map(demoToUnified);
-  }, [osm, junction.lanes]);
+    // OSM'de bu noktada turn:lanes yoksa, manevra bilgisini tek-şerit göster
+    return [
+      {
+        no: 1,
+        arrow: "↑",
+        arrowLabel: "Yola devam",
+        primary: junction.name || "Yol devam",
+      },
+    ];
+  }, [osm, junction.lanes, junction.name]);
 
   const positions = positionLabels(unified.length);
 
-  // Önerilen şerit
+  // Önerilen şerit — OSM canlı varsa onun üzerinden; yoksa tek-şerit fallback (0)
   const suggestedIdx = useMemo(() => {
     if (osm && osm.lanes.length) return pickFromOsm(osm.lanes, destinationLabel);
-    return pickFromDemo(junction.lanes, destinationLabel);
-  }, [osm, junction.lanes, destinationLabel]);
+    return 0;
+  }, [osm, destinationLabel]);
 
   const suggestedPos = suggestedIdx >= 0 ? positions[suggestedIdx] : undefined;
   const suggestedUnified = suggestedIdx >= 0 ? unified[suggestedIdx] : undefined;
@@ -217,8 +225,6 @@ export function LaneCard({
         maneuverLngLat={maneuverLngLat}
       />
 
-      <RoadView lanes={unified} suggestedIdx={suggestedIdx} positions={positions} />
-
       {suggestedUnified && suggestedPos && (
         <div className="px-5 pb-2">
           <div className="rounded-xl bg-vapur text-bogaz-deep px-4 py-3 flex items-center gap-3">
@@ -284,18 +290,6 @@ export function LaneCard({
         })}
       </div>
 
-      {junction.trap && source !== "osm" && (
-        <div className="mx-5 mb-4 mt-1 flex items-start gap-2 rounded-lg bg-vapur-red/12 ring-1 ring-vapur-red/30 px-3 py-2">
-          <span className="text-vapur-red text-sm leading-none mt-0.5 font-bold">
-            !
-          </span>
-          <p className="text-[12px] text-sis/90 leading-snug">
-            <strong className="text-vapur-soft">Tuzak: </strong>
-            {junction.trap}
-          </p>
-        </div>
-      )}
-
       <div className="bg-bogaz-deep/50 px-5 py-2.5 flex items-center justify-between text-[11px]">
         <span className="text-sis/60">
           Veri kaynağı:{" "}
@@ -311,7 +305,7 @@ export function LaneCard({
           ) : source === "loading" ? (
             <span className="text-sis/60">OSM yükleniyor…</span>
           ) : (
-            <span className="text-mehtap">Demo (OSM verisi yok)</span>
+            <span className="text-cini-soft">OSRM rotası (OSM şerit yok)</span>
           )}
         </span>
         <button
@@ -440,14 +434,14 @@ function CarIcon({ className }: { className?: string }) {
 function SourceBadge({ source, reason }: { source: Source; reason?: string }) {
   const map: Record<Source, { lbl: string; bg: string; color: string }> = {
     osm: {
-      lbl: "OSM canlı",
+      lbl: "OSM şerit",
       bg: "bg-cini/15",
       color: "text-cini",
     },
     demo: {
-      lbl: "Demo veri",
-      bg: "bg-mehtap/20",
-      color: "text-mehtap",
+      lbl: "OSRM rotası",
+      bg: "bg-cini-soft/15",
+      color: "text-cini-soft",
     },
     loading: {
       lbl: "OSM…",
@@ -455,9 +449,9 @@ function SourceBadge({ source, reason }: { source: Source; reason?: string }) {
       color: "text-sis/70",
     },
     empty: {
-      lbl: "Demo",
-      bg: "bg-mehtap/20",
-      color: "text-mehtap",
+      lbl: "OSRM rotası",
+      bg: "bg-cini-soft/15",
+      color: "text-cini-soft",
     },
   };
   const x = map[source];
@@ -465,7 +459,7 @@ function SourceBadge({ source, reason }: { source: Source; reason?: string }) {
     <span
       title={
         source === "demo"
-          ? `OSM'de bu nokta için şerit verisi bulunamadı (${reason ?? "—"}). Seed veri kullanılıyor.`
+          ? `OSM'de bu noktanın şerit etiketi yok. Yönlendirme OSRM rotasından (gerçek).`
           : source === "osm"
           ? "OpenStreetMap'ten canlı çekildi — gerçek turn:lanes verisi"
           : undefined
@@ -489,48 +483,7 @@ function osmToUnified(l: OsmLane): UnifiedLane {
   };
 }
 
-function demoToUnified(l: Lane): UnifiedLane {
-  // demo lane.kind'a basit ok ataması
-  const arrow =
-    l.kind === "donus"
-      ? "↩"
-      : l.kind === "cevreyolu"
-      ? "↑"
-      : "↑";
-  return {
-    no: l.no,
-    arrow,
-    arrowLabel: "Düz/işaretli",
-    primary: l.destinations[0] ?? "",
-    secondary: l.destinations.slice(1).join(" · ") || undefined,
-  };
-}
-
 // ---------- Hedef → şerit eşleme ----------
-
-function pickFromDemo(lanes: Lane[], dest?: string): number {
-  if (!dest) return -1;
-  const d = dest.toLocaleLowerCase("tr");
-  for (let i = 0; i < lanes.length; i++) {
-    for (const lbl of lanes[i].destinations) {
-      const l = lbl.toLocaleLowerCase("tr");
-      if (l.includes(d) || d.includes(l.split(" ")[0])) return i;
-    }
-  }
-  if (d.includes("vapur") || d.includes("iskele")) {
-    const i = lanes.findIndex((l) => l.kind === "sahil" || l.kind === "merkez");
-    return i >= 0 ? i : 0;
-  }
-  if (d.includes("anadolu") || d.includes("kadıköy")) {
-    const i = lanes.findIndex((l) => l.kind === "kopru-anadolu");
-    return i >= 0 ? i : 0;
-  }
-  if (d.includes("havalimanı") || d.includes("sabiha")) {
-    const i = lanes.findIndex((l) => l.kind === "havalimani" || l.kind === "cevreyolu");
-    return i >= 0 ? i : 0;
-  }
-  return 0;
-}
 
 function pickFromOsm(lanes: OsmLane[], dest?: string): number {
   if (!dest) {

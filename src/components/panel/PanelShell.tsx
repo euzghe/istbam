@@ -3,42 +3,28 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Route as OsrmRoute } from "@/lib/route-source";
+import type { Route as OsrmRoute, RouteStep } from "@/lib/route-source";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MapOverlay } from "./MapOverlay";
 import { SideNav } from "./SideNav";
 import { IstanbulBackdrop } from "./IstanbulBackdrop";
+import { VoiceNavigation } from "./VoiceNavigation";
 import {
   PanelContext,
   type Destination,
   type LiveLocation,
+  type Junction,
+  DECISION_TYPES,
 } from "./PanelContext";
-import { JUNCTIONS, type Junction } from "@/data/junctions";
+import type { GeoHit } from "@/lib/geocode-source";
 import type { IsparkLive } from "@/lib/ispark-source";
 import { haversineKm } from "@/lib/geo";
-
-const SUGGESTIONS: Destination[] = [
-  { label: "Edirnekapı O-3 Çıkışı (OSM canlı)", lng: 28.926, lat: 41.027, junctionId: "jct-edirnekapi-o3" },
-  { label: "Cevizlibağ (OSM canlı)", lng: 28.918, lat: 41.001 },
-  { label: "Sultanahmet", lng: 28.977, lat: 41.0058, junctionId: "jct-sultanahmet-cikis" },
-  { label: "Taksim", lng: 28.9866, lat: 41.0367 },
-  { label: "Kadıköy İskele", lng: 29.0247, lat: 40.9923, junctionId: "jct-kadikoy-iskele" },
-  { label: "15 Temmuz Köprüsü", lng: 29.034, lat: 41.045, junctionId: "jct-15temmuz-girisi" },
-  { label: "FSM Köprüsü", lng: 29.057, lat: 41.083, junctionId: "jct-fsm-girisi" },
-  { label: "Mecidiyeköy", lng: 28.999, lat: 41.067, junctionId: "jct-mecidiyekoy" },
-  { label: "Yenikapı Vapur İskele", lng: 28.95, lat: 40.998, junctionId: "jct-yenikapi-vapur" },
-  { label: "Sabiha Gökçen Havalimanı", lng: 29.31, lat: 40.898 },
-  { label: "İst. Havalimanı", lng: 28.747, lat: 41.275 },
-];
-
-const MAX_LANE_KM = 1.5;
 
 export function PanelShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [destination, setDestinationState] = useState<Destination | null>(null);
 
-  // Hedef seçilince Şerit Rehberi sayfasına yönlendir
   function setDestination(d: Destination | null) {
     setDestinationState(d);
     if (d) router.push("/panel");
@@ -68,7 +54,6 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [sideOpen]);
 
-  // İBB'den canlı İSPARK listesi
   useEffect(() => {
     let alive = true;
     fetch("/api/ispark")
@@ -87,7 +72,6 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Geolocation
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setGeoError("Tarayıcı konum desteklemiyor");
@@ -109,7 +93,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
-  // OSRM rotası — sadece live + destination ikisi de varken, ve user >75m hareket ettiyse yenile
+  // OSRM rotası
   useEffect(() => {
     if (!live || !destination) {
       setRoute(null);
@@ -141,28 +125,26 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     };
   }, [live?.lng, live?.lat, destination?.lng, destination?.lat]);
 
-  // Sıradaki anlamlı manevra — kullanıcı konumuna en yakın "depart" sonrası adım
-  const nextManeuver = useMemo(() => {
-    if (!route || !live) return null;
-    let best: { step: (typeof route.steps)[number]; distM: number } | null = null;
+  const upcomingDecisions = useMemo<{ step: RouteStep; distM: number }[]>(() => {
+    if (!route || !live) return [];
+    const list: { step: RouteStep; distM: number }[] = [];
     for (let i = 0; i < route.steps.length; i++) {
       const step = route.steps[i];
       if (step.maneuver.type === "depart") continue;
+      if (!DECISION_TYPES.has(step.maneuver.type)) continue;
       const [mlng, mlat] = step.maneuver.location;
       const distM = Math.round(
         haversineKm(live, { lng: mlng, lat: mlat }) * 1000
       );
-      // Geride kalmış manevralar (5m altı, geçtin)
       if (distM < 5) continue;
-      if (!best || distM < best.distM) best = { step, distM };
-      // İlk anlamlı manevrayı seçtikten sonra ileri bakmaya gerek yok
-      if (step.maneuver.type !== "continue" && step.maneuver.type !== "new name") {
-        break;
-      }
+      list.push({ step, distM });
+      if (list.length >= 4) break;
     }
-    return best;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    list.sort((a, b) => a.distM - b.distM);
+    return list;
   }, [route, live?.lng, live?.lat]);
+
+  const nextManeuver = upcomingDecisions[0] ?? null;
 
   const reference = live
     ? { lng: live.lng, lat: live.lat }
@@ -185,44 +167,30 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       .map((p) => ({ ...p, distanceKm: haversineKm(reference, p) }))
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .slice(0, 3);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isparks, reference?.lng, reference?.lat]);
 
-  // Öncelik:
-  //  1. Hedef bir kavşağa işaret ediyorsa HER DURUMDA göster (uzakta olsa bile önizleme)
-  //  2. Hedef yok ama canlı konumdaysan 1.5 km içindeki kavşağı göster
-  //  3. Hedef konumu var (junctionId yok) → o civardaki yakın kavşak (1.5 km içinde)
+  // activeJunction: ONLY route-based artık. Hardcoded junctions yok.
   const activeJunction: { j: Junction; distanceM: number } | undefined = useMemo(() => {
-    if (destination?.junctionId) {
-      const j = JUNCTIONS.find((x) => x.id === destination.junctionId);
-      if (!j) return undefined;
-      // Mesafe: canlı varsa kullanıcıdan kavşağa, yoksa demo warnMeters
-      const d = live ? haversineKm(live, j) * 1000 : j.warnMeters;
-      return { j, distanceM: Math.round(d) };
-    }
-    if (live) {
-      const sorted = [...JUNCTIONS]
-        .map((j) => ({ j, dKm: haversineKm(live, j) }))
-        .sort((a, b) => a.dKm - b.dKm);
-      const best = sorted[0];
-      if (!best || best.dKm > MAX_LANE_KM) return undefined;
-      return { j: best.j, distanceM: Math.round(best.dKm * 1000) };
-    }
-    if (destination) {
-      const sorted = [...JUNCTIONS]
-        .map((j) => ({ j, dKm: haversineKm(destination, j) }))
-        .sort((a, b) => a.dKm - b.dKm);
-      const best = sorted[0];
-      if (!best || best.dKm > MAX_LANE_KM) return undefined;
-      return { j: best.j, distanceM: Math.round(best.dKm * 1000) };
-    }
-    return undefined;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination?.junctionId, destination?.lng, destination?.lat, live?.lng, live?.lat]);
-
-  const filteredSugg = SUGGESTIONS.filter((s) =>
-    s.label.toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr"))
-  );
+    if (!nextManeuver) return undefined;
+    const [mlng, mlat] = nextManeuver.step.maneuver.location;
+    const roadName =
+      nextManeuver.step.name?.trim() ||
+      nextManeuver.step.maneuver.instruction;
+    const synthetic: Junction = {
+      id: `route-step-${mlng.toFixed(4)},${mlat.toFixed(4)}`,
+      name: roadName,
+      approach: `${nextManeuver.step.maneuver.instruction} — rotanda`,
+      lng: mlng,
+      lat: mlat,
+      warnMeters: 300,
+      lanes: [],
+    };
+    return { j: synthetic, distanceM: nextManeuver.distM };
+  }, [
+    nextManeuver?.step.maneuver.location[0],
+    nextManeuver?.step.maneuver.location[1],
+    nextManeuver?.distM,
+  ]);
 
   function openMapAll() {
     setMapTitle(
@@ -258,6 +226,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       navigating: !!destination,
       route,
       nextManeuver,
+      upcomingDecisions,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -270,6 +239,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       nearestIsparks,
       route,
       nextManeuver,
+      upcomingDecisions,
     ]
   );
 
@@ -281,7 +251,6 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           setDestination={setDestination}
           query={query}
           setQuery={setQuery}
-          suggestions={filteredSugg}
           live={live}
           geoError={geoError}
           onOpenMap={openMapAll}
@@ -326,7 +295,6 @@ function TopBar({
   setDestination,
   query,
   setQuery,
-  suggestions,
   live,
   geoError,
   onOpenMap,
@@ -336,13 +304,35 @@ function TopBar({
   setDestination: (d: Destination | null) => void;
   query: string;
   setQuery: (q: string) => void;
-  suggestions: Destination[];
   live: LiveLocation | null;
   geoError: string | null;
   onOpenMap: () => void;
   onMenu: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [hits, setHits] = useState<GeoHit[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  // Nominatim debounced arama
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setHits([]);
+      return;
+    }
+    const id = setTimeout(() => {
+      setSearching(true);
+      fetch(`/api/search?q=${encodeURIComponent(q)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          setHits(d.items ?? []);
+          setSearching(false);
+        })
+        .catch(() => setSearching(false));
+    }, 350);
+    return () => clearTimeout(id);
+  }, [query]);
+
   return (
     <header className="bg-bogaz-deep text-sis px-4 py-3 shadow-md shrink-0 relative z-50">
       <div className="flex items-center gap-3 sm:gap-4">
@@ -350,7 +340,6 @@ function TopBar({
           onClick={onMenu}
           className="size-9 rounded-full hover:bg-sis/10 text-sis transition flex items-center justify-center shrink-0"
           aria-label="Bölüm menüsü"
-          title="Bölümler"
         >
           <span className="text-lg leading-none">☰</span>
         </button>
@@ -392,10 +381,13 @@ function TopBar({
                 setOpen(true);
               }}
               onFocus={() => setOpen(true)}
-              onBlur={() => setTimeout(() => setOpen(false), 150)}
-              placeholder="Hedef yazın: Sultanahmet, Kadıköy, FSM…"
+              onBlur={() => setTimeout(() => setOpen(false), 200)}
+              placeholder="Adres ara: Sultanahmet, Bağdat Cd. 245, FSM…"
               className="flex-1 bg-transparent outline-none text-sm placeholder:text-sis/50"
             />
+            {searching && (
+              <span className="text-[10px] text-sis/50 shrink-0">aranıyor…</span>
+            )}
             {destination && !query && (
               <button
                 onClick={() => {
@@ -410,25 +402,47 @@ function TopBar({
             )}
           </div>
 
-          {open && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-card text-on rounded-card ring-1 ring-line shadow-xl shadow-bogaz-deep/20 max-h-80 overflow-y-auto z-30">
-              {suggestions.map((s) => (
-                <button
-                  key={s.label}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    setDestination(s);
-                    setQuery("");
-                    setOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 hover:bg-chip transition flex items-center justify-between border-b border-line last:border-0"
-                >
-                  <span className="text-sm font-medium">{s.label}</span>
-                  <span className="text-[10px] text-on-mute uppercase tracking-wider">
-                    {s.junctionId ? "Şerit verisi var" : "Konum"}
-                  </span>
-                </button>
-              ))}
+          {open && (hits.length > 0 || (query.length >= 2 && !searching)) && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-card text-on rounded-card ring-1 ring-line shadow-xl shadow-bogaz-deep/20 max-h-96 overflow-y-auto z-30">
+              {hits.length === 0 && query.length >= 2 && !searching ? (
+                <div className="px-4 py-4 text-sm text-on-mute">
+                  Sonuç yok — başka bir adres dene.
+                </div>
+              ) : (
+                hits.map((h) => (
+                  <button
+                    key={h.id}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setDestination({
+                        label: h.label,
+                        lng: h.lng,
+                        lat: h.lat,
+                      });
+                      setQuery("");
+                      setOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-chip transition flex items-center justify-between border-b border-line last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-on truncate">
+                        {h.label}
+                      </div>
+                      {h.detail && (
+                        <div className="text-[10px] text-on-mute truncate">
+                          {h.detail}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-on-mute uppercase tracking-wider shrink-0 ml-2">
+                      {h.type}
+                    </span>
+                  </button>
+                ))
+              )}
+              <div className="px-3 py-1.5 text-[9px] text-on-mute uppercase tracking-widest border-t border-line bg-chip/40">
+                Arama: OpenStreetMap Nominatim (canlı)
+              </div>
             </div>
           )}
         </div>
@@ -436,19 +450,14 @@ function TopBar({
         <button
           onClick={onOpenMap}
           className="inline-flex items-center gap-1.5 rounded-full bg-vapur text-bogaz-deep font-semibold text-xs px-3 py-1.5 hover:bg-vapur-soft transition"
-          aria-label="Haritayı aç"
         >
           <span>🗺</span>
           <span className="hidden sm:inline">Harita</span>
         </button>
 
+        <VoiceNavigation />
         <ThemeToggle variant="light-bar" />
       </div>
     </header>
   );
-}
-
-// Konum izni yokken gösterilen banner — herhangi bir sayfada kullanılabilir
-export function LocationBanner() {
-  return null;
 }

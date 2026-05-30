@@ -9,6 +9,11 @@ import {
 import { StatusStrip } from "@/components/panel/sections/StatusStrip";
 import { PageHeader } from "@/components/panel/sections/PageHeader";
 import { NextManeuverCard } from "@/components/panel/sections/NextManeuverCard";
+import { UpcomingSteps } from "@/components/panel/sections/UpcomingSteps";
+import { FavoritesQuick } from "@/components/panel/sections/FavoritesQuick";
+import { SpeedWidget } from "@/components/panel/sections/SpeedWidget";
+import { RouteTollsCard } from "@/components/panel/sections/RouteTollsCard";
+import { RouteTrafficCard } from "@/components/panel/sections/RouteTrafficCard";
 
 export default function PanelHome() {
   const {
@@ -35,6 +40,8 @@ export default function PanelHome() {
         accent={navigating ? "vapur" : "cini"}
       />
       <StatusStrip />
+      <SpeedWidget />
+      <FavoritesQuick />
       {!live && (
         <div className="animate-fade-in-up delay-1">
           <LocationBanner
@@ -45,15 +52,26 @@ export default function PanelHome() {
       )}
 
       {nextManeuver && route && (
-        <div className="animate-fade-in-up delay-1">
-          <NextManeuverCard
-            arrow={nextManeuver.step.maneuver.arrow}
-            instruction={nextManeuver.step.maneuver.instruction}
-            distanceM={nextManeuver.distM}
-            totalDistanceM={route.distance}
-            totalDurationS={route.duration}
-          />
-        </div>
+        <>
+          <div className="animate-fade-in-up delay-1">
+            <NextManeuverCard
+              arrow={nextManeuver.step.maneuver.arrow}
+              instruction={nextManeuver.step.maneuver.instruction}
+              distanceM={nextManeuver.distM}
+              totalDistanceM={route.distance}
+              totalDurationS={route.duration}
+            />
+          </div>
+          <div className="animate-fade-in-up delay-2">
+            <UpcomingSteps />
+          </div>
+          <div className="animate-fade-in-up delay-3">
+            <RouteTrafficCard />
+          </div>
+          <div className="animate-fade-in-up delay-4">
+            <RouteTollsCard />
+          </div>
+        </>
       )}
 
       <div className="animate-fade-in-up delay-2">

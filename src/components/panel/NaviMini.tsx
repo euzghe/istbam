@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -12,10 +12,26 @@ type Props = {
   userLat?: number;
   distanceM: number;
   routeGeometry?: { type: "LineString"; coordinates: [number, number][] };
-  // Sıradaki manevra noktası (varsa, kavşak yerine bunu vurgular)
   maneuverLngLat?: [number, number];
   maneuverArrow?: string;
 };
+
+// Şehir bearing — iki nokta arası yön açısı (kuzeyden saat yönünde derece)
+function bearing(
+  from: { lng: number; lat: number },
+  to: { lng: number; lat: number }
+): number {
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const toDeg = (x: number) => (x * 180) / Math.PI;
+  const lat1 = toRad(from.lat);
+  const lat2 = toRad(to.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
 
 export function NaviMini({
   junctionLat,
@@ -31,14 +47,40 @@ export function NaviMini({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const focusMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const [followMode, setFollowMode] = useState(true);
+  const [cityIndex, setCityIndex] = useState<number | null>(null);
 
   const live = userLng != null && userLat != null;
   const uLng = userLng ?? junctionLng;
   const uLat = userLat ?? junctionLat - 0.0022;
 
-  // Odak noktası: manevra varsa o, yoksa kavşak
   const focusLng = maneuverLngLat?.[0] ?? junctionLng;
   const focusLat = maneuverLngLat?.[1] ?? junctionLat;
+
+  // İBB şehir trafik endeksini çek (rota polyline rengi için)
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/traffic")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        if (d.source === "ibb") setCityIndex(d.current.index);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Trafiğe göre rota rengi
+  const trafficColor =
+    cityIndex == null
+      ? "#f5a524"
+      : cityIndex < 30
+      ? "#2eb872"
+      : cityIndex < 60
+      ? "#f5a524"
+      : "#c84b4b";
 
   // Harita kurulumu
   useEffect(() => {
@@ -55,29 +97,31 @@ export function NaviMini({
         : "https://tiles.openfreemap.org/styles/positron",
       center: [(focusLng + uLng) / 2, (focusLat + uLat) / 2],
       zoom: 14,
+      maxPitch: 75,
       interactive: true,
       attributionControl: false,
     });
     mapRef.current = map;
 
     map.on("load", () => {
-      // Rota katmanı (boşta başla, geometry geldiğinde doldur)
       map.addSource("navi-route", {
         type: "geojson",
-        data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [] } },
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "LineString", coordinates: [] },
+        },
       });
-      // Casing (kalın koyu kenar)
       map.addLayer({
         id: "navi-route-casing",
         type: "line",
         source: "navi-route",
         paint: {
           "line-color": "#0a1d3a",
-          "line-width": 9,
-          "line-opacity": 0.55,
+          "line-width": 10,
+          "line-opacity": 0.5,
         },
       });
-      // Ana çizgi
       map.addLayer({
         id: "navi-route-line",
         type: "line",
@@ -89,7 +133,6 @@ export function NaviMini({
         },
       });
 
-      // Sürücü marker
       const userEl = document.createElement("div");
       userEl.innerHTML = `
         <div style="position:relative; width:38px; height:38px;">
@@ -103,7 +146,6 @@ export function NaviMini({
         .setLngLat([uLng, uLat])
         .addTo(map);
 
-      // Odak (manevra/kavşak) marker
       const focusEl = document.createElement("div");
       focusEl.style.cssText = `
         width: 0; height: 0;
@@ -137,7 +179,20 @@ export function NaviMini({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Rota geometrisi geldiğinde polyline çiz + bounds fit
+  // Trafik rengi değişince çizgiyi yenile
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      if (map.getLayer("navi-route-line")) {
+        map.setPaintProperty("navi-route-line", "line-color", trafficColor);
+      }
+    };
+    if (map.loaded()) apply();
+    else map.once("load", apply);
+  }, [trafficColor]);
+
+  // Rota geometrisi geldiğinde polyline + zoom davranışı
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -154,13 +209,35 @@ export function NaviMini({
           properties: {},
           geometry: routeGeometry,
         });
-        const bbox = new maplibregl.LngLatBounds();
-        routeGeometry.coordinates.forEach((c) =>
-          bbox.extend(c as [number, number])
-        );
-        map.fitBounds(bbox, { padding: 60, maxZoom: 16, duration: 600 });
+
+        if (followMode && live && routeGeometry.coordinates.length > 2) {
+          // Yakın takip: kullanıcı arabasının arkasından bakış — eğimli + yakın
+          const head = bearing(
+            { lng: uLng, lat: uLat },
+            { lng: focusLng, lat: focusLat }
+          );
+          map.easeTo({
+            center: [uLng, uLat],
+            zoom: 17.5,
+            bearing: head,
+            pitch: 65,
+            duration: 700,
+          });
+        } else {
+          // Genel bakış: tüm rotayı sığdır
+          const bbox = new maplibregl.LngLatBounds();
+          routeGeometry.coordinates.forEach((c) =>
+            bbox.extend(c as [number, number])
+          );
+          map.fitBounds(bbox, {
+            padding: 60,
+            maxZoom: 16,
+            duration: 600,
+            bearing: 0,
+            pitch: 0,
+          });
+        }
       } else {
-        // Rota yok — sadece user → odak iki nokta fit et
         src.setData({
           type: "Feature",
           properties: {},
@@ -182,38 +259,88 @@ export function NaviMini({
     if (map.loaded()) apply();
     else map.once("load", apply);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeGeometry?.coordinates.length]);
+  }, [routeGeometry?.coordinates.length, followMode]);
 
-  // Kullanıcı konumu değişince marker'ı güncelle (haritayı oynatma)
+  // Konum tick'lerinde marker güncelle, follow modda haritayı kaydır
   useEffect(() => {
     userMarkerRef.current?.setLngLat([uLng, uLat]);
-  }, [uLng, uLat]);
+    const map = mapRef.current;
+    if (map && followMode && live && routeGeometry) {
+      const head = bearing(
+        { lng: uLng, lat: uLat },
+        { lng: focusLng, lat: focusLat }
+      );
+      // Pitch/zoom korunsun, sadece center + bearing yumuşak güncelle
+      map.easeTo({
+        center: [uLng, uLat],
+        bearing: head,
+        pitch: 65,
+        zoom: 17.5,
+        duration: 500,
+      });
+    }
+  }, [uLng, uLat, followMode, focusLng, focusLat, live, routeGeometry]);
 
-  // Odak (manevra) noktası değişince
   useEffect(() => {
     focusMarkerRef.current?.setLngLat([focusLng, focusLat]);
   }, [focusLng, focusLat]);
 
+  function toggleMode() {
+    setFollowMode((v) => !v);
+  }
+
   return (
     <div className="px-5 mt-3">
       <div className="relative rounded-xl overflow-hidden ring-1 ring-sis/15 bg-bogaz-deep">
-        <div ref={containerRef} className="w-full h-[280px] sm:h-[320px]" />
+        <div ref={containerRef} className="w-full h-[340px] sm:h-[400px]" />
 
-        <div className="absolute top-2 left-2 inline-flex items-center gap-1.5 bg-bogaz-deep/85 backdrop-blur rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider">
-          <span
-            className={`size-1.5 rounded-full ${
-              live ? "bg-cini animate-pulse" : "bg-mehtap"
-            }`}
-          />
-          <span className={live ? "text-cini-soft" : "text-mehtap"}>
-            {live ? "Canlı konum" : "Demo konum"}
+        <div className="absolute top-2 left-2 flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 bg-bogaz-deep/85 backdrop-blur rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider">
+            <span
+              className={`size-1.5 rounded-full ${
+                live ? "bg-cini animate-pulse" : "bg-mehtap"
+              }`}
+            />
+            <span className={live ? "text-cini-soft" : "text-mehtap"}>
+              {live ? "Canlı" : "Demo"}
+            </span>
           </span>
+          {cityIndex != null && (
+            <span
+              className="inline-flex items-center gap-1.5 backdrop-blur rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
+              style={{ background: `${trafficColor}33`, color: trafficColor }}
+              title="Rota şehir trafik endeksine göre renkleniyor (İBB canlı)"
+            >
+              <span
+                className="size-1.5 rounded-full"
+                style={{ background: trafficColor }}
+              />
+              Trafik {cityIndex}
+            </span>
+          )}
         </div>
 
-        <div className="absolute top-2 right-2 bg-vapur text-bogaz-deep text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1">
-          {distanceM < 1000
-            ? `${distanceM} m`
-            : `${(distanceM / 1000).toFixed(1)} km`}
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          <button
+            onClick={toggleMode}
+            className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 backdrop-blur transition ${
+              followMode
+                ? "bg-vapur text-bogaz-deep"
+                : "bg-bogaz-deep/85 text-sis hover:bg-bogaz-deep"
+            }`}
+            title={
+              followMode
+                ? "Genel bakışa geç"
+                : "Yakın takip moduna geç"
+            }
+          >
+            {followMode ? "🎯 Yakın takip" : "🗺 Genel bakış"}
+          </button>
+          <span className="bg-vapur text-bogaz-deep text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1">
+            {distanceM < 1000
+              ? `${distanceM} m`
+              : `${(distanceM / 1000).toFixed(1)} km`}
+          </span>
         </div>
 
         <div className="absolute bottom-2 left-2 right-2 bg-bogaz-deep/85 backdrop-blur rounded-md px-2.5 py-1.5 text-[11px] text-sis truncate">

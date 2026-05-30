@@ -20,6 +20,9 @@ export type Bridge = {
   baseTravelMin: number;
   // Şehir indeksine göre yoğunluk çarpanı (örn. boğaz hatları daha yoğun)
   congestionMultiplier: number;
+  // Harita için konum (yaklaşık orta nokta)
+  lat: number;
+  lng: number;
 };
 
 // Son doğrulama: 2026-01 — kullanıcı tarafından son güncel rakamlarla
@@ -34,6 +37,8 @@ export const BRIDGES: Bridge[] = [
     tariffSourceUrl: "https://www.kgm.gov.tr",
     baseTravelMin: 18,
     congestionMultiplier: 1.3,
+    lat: 41.045,
+    lng: 29.034,
   },
   {
     id: "fsm",
@@ -44,6 +49,8 @@ export const BRIDGES: Bridge[] = [
     tariffSourceUrl: "https://www.kgm.gov.tr",
     baseTravelMin: 16,
     congestionMultiplier: 1.2,
+    lat: 41.0905,
+    lng: 29.0617,
   },
   {
     id: "yss",
@@ -54,6 +61,8 @@ export const BRIDGES: Bridge[] = [
     tariffSourceUrl: "https://3kib.com",
     baseTravelMin: 22,
     congestionMultiplier: 0.7,
+    lat: 41.197,
+    lng: 29.107,
   },
   {
     id: "avrasya",
@@ -64,6 +73,8 @@ export const BRIDGES: Bridge[] = [
     tariffSourceUrl: "https://avrasyatuneli.com",
     baseTravelMin: 8,
     congestionMultiplier: 0.5,
+    lat: 41.0,
+    lng: 28.98,
   },
 ];
 

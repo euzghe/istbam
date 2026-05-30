@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { JUNCTIONS } from "@/data/junctions";
 import type { IsparkLive } from "@/lib/ispark-source";
 
 type Props = {
@@ -61,24 +60,8 @@ export function MapView({
 
     mapRef.current = map;
 
-    map.on("load", () => {
-      // Kavşak marker'ları (sabit)
-      JUNCTIONS.forEach((j) => {
-        const el = document.createElement("div");
-        el.style.cssText = `
-          width: 0; height: 0;
-          border-left: 9px solid transparent;
-          border-right: 9px solid transparent;
-          border-bottom: 14px solid #f5a524;
-          filter: drop-shadow(0 2px 4px rgba(10,29,58,0.4));
-          cursor: pointer;
-        `;
-        el.title = j.name;
-        new maplibregl.Marker({ element: el, anchor: "bottom" })
-          .setLngLat([j.lng, j.lat])
-          .addTo(map);
-      });
-    });
+    // Kavşak marker'larını kaldırdık — artık tüm yönlendirme OSRM rotasından
+    // canlı olarak geliyor, sabit kavşak listesi yok.
 
     return () => {
       map.remove();

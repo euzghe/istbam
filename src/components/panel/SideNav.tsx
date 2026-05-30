@@ -13,7 +13,12 @@ export type SectionId =
   | "yardim"
   | "vapur"
   | "uyari"
-  | "arabam";
+  | "arabam"
+  | "hastane"
+  | "eczane"
+  | "avm"
+  | "sarj"
+  | "favoriler";
 
 type Item = {
   id: SectionId;
@@ -39,7 +44,16 @@ export const SECTIONS: Group[] = [
     items: [
       { id: "ispark", href: "/panel/ispark", label: "İSPARK", icon: "🅿", hint: "258 canlı" },
       { id: "akaryakit", href: "/panel/akaryakit", label: "Akaryakıt", icon: "⛽", hint: "Fiyat + istasyon" },
+      { id: "sarj", href: "/panel/sarj", label: "EV Şarj", icon: "⚡", hint: "Trugo/ZES/Eşarj" },
       { id: "hgs", href: "/panel/hgs", label: "HGS", icon: "🪪", hint: "Bakiye + tarife" },
+    ],
+  },
+  {
+    title: "Yakın Yer",
+    items: [
+      { id: "hastane", href: "/panel/hastane", label: "Hastaneler", icon: "🏥", hint: "Devlet / özel" },
+      { id: "eczane", href: "/panel/eczane", label: "Eczaneler", icon: "💊", hint: "Nöbetçi / 24h" },
+      { id: "avm", href: "/panel/avm", label: "AVM / Outlet", icon: "🏬", hint: "Yakındakiler" },
     ],
   },
   {
@@ -48,6 +62,7 @@ export const SECTIONS: Group[] = [
       { id: "yardim", href: "/panel/yardim", label: "Yardım", icon: "🆘", hint: "112 + sigortam" },
       { id: "vapur", href: "/panel/vapur", label: "Arabalı Vapur", icon: "⛴", hint: "Eskihisar-Topçular" },
       { id: "arabam", href: "/panel/arabam", label: "Arabam", icon: "🚗", hint: "Park ettiğim yer" },
+      { id: "favoriler", href: "/panel/favoriler", label: "Favoriler", icon: "⭐", hint: "Ev / İş / özel" },
     ],
   },
 ];
