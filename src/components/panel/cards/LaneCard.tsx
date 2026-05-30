@@ -6,7 +6,7 @@ import type { OsmLane, OsmLanesEmpty, OsmLanesResult } from "@/lib/overpass";
 import { turnArrow, turnLabelTr } from "@/lib/overpass";
 import { NaviMini } from "../NaviMini";
 
-type Source = "osm" | "demo" | "loading" | "empty";
+type Source = "osm" | "manual" | "demo" | "loading" | "empty";
 
 type UnifiedLane = {
   no: number;
@@ -44,9 +44,17 @@ export function LaneCard({
   const [source, setSource] = useState<Source>("loading");
   const [osmReason, setOsmReason] = useState<string | undefined>();
 
-  // OSM fetch — kavşak değişince
+  // OSM fetch — kavşak değişince (manuel veri varsa atla)
   useEffect(() => {
     let alive = true;
+
+    // Eğer kavşağın manuel şerit verisi varsa OSM'e sormaya gerek yok
+    if (junction.manualLanes?.length) {
+      setOsm(null);
+      setSource("manual");
+      return;
+    }
+
     setSource("loading");
     setOsm(null);
     setOsmReason(undefined);
@@ -72,12 +80,23 @@ export function LaneCard({
     return () => {
       alive = false;
     };
-  }, [junction.id, junction.lat, junction.lng]);
+  }, [junction.id, junction.lat, junction.lng, junction.manualLanes]);
 
-  // Unified lane'ler — OSM canlı veya OSRM rotasından fallback
+  // Unified lane'ler — öncelik: manuel veritabanı → OSM canlı → OSRM fallback
   const unified: UnifiedLane[] = useMemo(() => {
+    // 1. Elle hazırlanmış İstbam kavşak veritabanı (en doğru)
+    if (junction.manualLanes?.length) {
+      return junction.manualLanes.map((m) => ({
+        no: m.no,
+        arrow: m.arrow,
+        arrowLabel: m.destinations[0] ?? "",
+        primary: m.destinations[0] ?? "",
+        secondary: m.destinations.slice(1).join(" · ") || undefined,
+      }));
+    }
+    // 2. OSM Overpass turn:lanes canlı verisi
     if (osm && osm.lanes.length) return osm.lanes.map(osmToUnified);
-    // OSM'de bu noktada turn:lanes yoksa, manevra bilgisini tek-şerit göster
+    // 3. Fallback: OSRM rota noktası, tek "Yola devam" şerit
     return [
       {
         no: 1,
@@ -86,7 +105,7 @@ export function LaneCard({
         primary: junction.name || "Yol devam",
       },
     ];
-  }, [osm, junction.lanes, junction.name]);
+  }, [osm, junction.manualLanes, junction.name]);
 
   const positions = positionLabels(unified.length);
 
@@ -290,10 +309,27 @@ export function LaneCard({
         })}
       </div>
 
+      {/* Tuzak uyarısı — sık kaçırılan şerit kararı için (manuel kavşaktan) */}
+      {junction.trap && (
+        <div className="mx-5 mb-3 mt-1 flex items-start gap-2 rounded-lg bg-vapur-red/12 ring-1 ring-vapur-red/30 px-3 py-2">
+          <span className="text-vapur-red text-sm leading-none mt-0.5 font-bold shrink-0">
+            ⚠
+          </span>
+          <p className="text-[12px] text-sis/90 leading-snug">
+            <strong className="text-vapur-soft">Tuzak: </strong>
+            {junction.trap}
+          </p>
+        </div>
+      )}
+
       <div className="bg-bogaz-deep/50 px-5 py-2.5 flex items-center justify-between text-[11px]">
         <span className="text-sis/60">
           Veri kaynağı:{" "}
-          {source === "osm" ? (
+          {source === "manual" ? (
+            <span className="text-vapur font-semibold">
+              İstbam veritabanı · doğrulanmış kavşak
+            </span>
+          ) : source === "osm" ? (
             <a
               href={`https://www.openstreetmap.org/way/${osm?.osmWayId}`}
               target="_blank"
@@ -433,6 +469,11 @@ function CarIcon({ className }: { className?: string }) {
 
 function SourceBadge({ source, reason }: { source: Source; reason?: string }) {
   const map: Record<Source, { lbl: string; bg: string; color: string }> = {
+    manual: {
+      lbl: "İstbam ✓",
+      bg: "bg-vapur/15",
+      color: "text-vapur",
+    },
     osm: {
       lbl: "OSM şerit",
       bg: "bg-cini/15",
@@ -458,7 +499,9 @@ function SourceBadge({ source, reason }: { source: Source; reason?: string }) {
   return (
     <span
       title={
-        source === "demo"
+        source === "manual"
+          ? "İstbam editör veritabanı — bu kavşak için doğrulanmış şerit-hedef bilgisi"
+          : source === "demo"
           ? `OSM'de bu noktanın şerit etiketi yok. Yönlendirme OSRM rotasından (gerçek).`
           : source === "osm"
           ? "OpenStreetMap'ten canlı çekildi — gerçek turn:lanes verisi"

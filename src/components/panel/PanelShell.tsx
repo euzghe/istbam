@@ -22,6 +22,7 @@ import type { GeoHit } from "@/lib/geocode-source";
 import type { IsparkLive } from "@/lib/ispark-source";
 import { haversineKm } from "@/lib/geo";
 import { POPULAR_PLACES, searchPopular, type PopularPlace } from "@/data/popular-places";
+import { matchManualJunction } from "@/data/manual-junctions";
 
 export function PanelShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -234,6 +235,25 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     const roadName =
       nextManeuver.step.name?.trim() ||
       nextManeuver.step.maneuver.instruction;
+
+    // Önce manuel İstbam kavşak veritabanında eşleşme ara (en doğru veri)
+    const manual = matchManualJunction(mlng, mlat);
+    if (manual) {
+      const j: Junction = {
+        id: `manual-${manual.id}`,
+        name: manual.name,
+        approach: manual.approach,
+        lng: manual.lng,
+        lat: manual.lat,
+        warnMeters: manual.warnMeters,
+        lanes: [],
+        manualLanes: manual.lanes,
+        trap: manual.trap,
+      };
+      return { j, distanceM: nextManeuver.distM };
+    }
+
+    // Eşleşme yoksa OSRM step'inden sentetik kavşak (LaneCard OSM Overpass'a sorar)
     const synthetic: Junction = {
       id: `route-step-${mlng.toFixed(4)},${mlat.toFixed(4)}`,
       name: roadName,

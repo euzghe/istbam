@@ -6,6 +6,14 @@ import type { Route as OsrmRoute, RouteStep } from "@/lib/route-source";
 
 // "Sentetik" kavşak — OSRM rotasındaki sıradaki karar noktasından oluşturulur.
 // Şerit rehberi bu noktanın lat/lng'sini OSM Overpass'a sorup turn:lanes alır.
+// Manuel hazırlanmış şerit yapısı — OSM'de turn:lanes olmayan kritik
+// İstanbul kavşakları için (kendi veritabanımızdan)
+export type LaneHint = {
+  no: number;
+  arrow: string;
+  destinations: string[];
+};
+
 export type Junction = {
   id: string;
   name: string;
@@ -13,7 +21,10 @@ export type Junction = {
   lng: number;
   lat: number;
   warnMeters: number;
-  lanes: never[]; // Demo veri kalmadı — hep boş, LaneCard OSM'den dolduruyor
+  lanes: never[]; // OSM Overpass'tan doldurulur
+  // Manuel veritabanından eşleşen kavşak varsa şeritleri burada
+  manualLanes?: LaneHint[];
+  trap?: string;
 };
 
 export type LiveLocation = {
