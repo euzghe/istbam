@@ -165,17 +165,53 @@ export function LaneCard({
           Yönlendirme aktif {destinationLabel ? `· "${destinationLabel}"` : ""}
         </div>
       )}
-      <header className="px-5 pt-4">
+
+      {/* HARİTA EN ÜSTE — sayfa açılınca ilk göreceğin şey */}
+      <NaviMini
+        junctionLat={junction.lat}
+        junctionLng={junction.lng}
+        junctionName={junction.name}
+        userLng={userLng}
+        userLat={userLat}
+        distanceM={distance}
+        routeGeometry={routeGeometry}
+        maneuverLngLat={maneuverLngLat}
+      />
+
+      {/* Şeritte ol — büyük amber band, haritanın hemen altında */}
+      {suggestedUnified && suggestedPos && (
+        <div className="px-5 pt-3 pb-2">
+          <div className="rounded-xl bg-vapur text-bogaz-deep px-4 py-3 flex items-center gap-3">
+            <div className="size-12 rounded-full bg-bogaz-deep text-vapur flex items-center justify-center font-bold text-2xl shrink-0">
+              {suggestedUnified.arrow}
+            </div>
+            <div className="leading-tight min-w-0">
+              <div className="text-[10px] uppercase tracking-widest font-bold opacity-70">
+                {fmtDistance(distance)} sonra
+              </div>
+              <div className="font-display text-xl font-semibold">
+                {suggestedPos} şeritte ol
+              </div>
+              <div className="text-xs opacity-85 truncate">
+                {suggestedUnified.primary || suggestedUnified.arrowLabel}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kavşak başlığı + kaynak rozeti — küçük */}
+      <header className="px-5 pt-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-vapur font-semibold">
               <span className="inline-block size-1.5 rounded-full bg-vapur animate-pulse" />
               Şerit Rehberi
             </div>
-            <h2 className="mt-1.5 font-display text-xl font-semibold leading-tight">
+            <h2 className="mt-1 font-display text-base font-semibold leading-tight">
               {junction.name}
             </h2>
-            <p className="text-xs text-sis/60 mt-0.5">
+            <p className="text-[11px] text-sis/60 mt-0.5 truncate">
               {roadHeading ? (
                 <>
                   <span className="text-cini-soft">{roadHeading}</span>
@@ -201,70 +237,26 @@ export function LaneCard({
                   : "bg-sis/10 text-sis/70 hover:bg-sis/15"
               }`}
             >
-              {voice ? "🔊 Sesli" : "🔇 Sessiz"}
+              {voice ? "🔊 Sesli" : "🔇"}
             </button>
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-3">
-          <div className="font-mono text-2xl font-semibold text-vapur tabular-nums">
+        <div className="mt-2 flex items-center gap-3">
+          <div className="font-mono text-base font-semibold text-vapur tabular-nums shrink-0">
             {fmtDistance(distance)}
           </div>
-          <div className="flex-1 h-2 rounded-full bg-sis/10 overflow-hidden">
+          <div className="flex-1 h-1.5 rounded-full bg-sis/10 overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-cini to-vapur transition-all duration-700"
               style={{ width: `${progress * 100}%` }}
             />
           </div>
-          <span className="text-[10px] uppercase tracking-wider text-sis/60">
+          <span className="text-[9px] uppercase tracking-wider text-sis/55 shrink-0">
             {distance > junction.warnMeters * 3 ? "Hedef" : "Kavşak"}
           </span>
         </div>
-
-        {/* Uzaktaki hedef için önizleme uyarısı */}
-        {hasLive && distance > junction.warnMeters * 3 && (
-          <div className="mt-2 flex items-center gap-2 rounded-lg bg-cini/10 ring-1 ring-cini/25 px-3 py-1.5 text-[11px]">
-            <span className="text-cini">ⓘ</span>
-            <span className="text-sis/85">
-              Önizleme — yaklaştığında bu rehber canlıya geçer
-            </span>
-          </div>
-        )}
       </header>
-
-      {/* Mini navi haritası — gerçek karayolu rotası + kullanıcı + manevra */}
-      <NaviMini
-        junctionLat={junction.lat}
-        junctionLng={junction.lng}
-        junctionName={junction.name}
-        userLng={userLng}
-        userLat={userLat}
-        distanceM={distance}
-        routeGeometry={routeGeometry}
-        maneuverLngLat={maneuverLngLat}
-      />
-
-      {suggestedUnified && suggestedPos && (
-        <div className="px-5 pb-2">
-          <div className="rounded-xl bg-vapur text-bogaz-deep px-4 py-3 flex items-center gap-3">
-            <div className="size-9 rounded-full bg-bogaz-deep text-vapur flex items-center justify-center font-bold text-lg">
-              {suggestedUnified.arrow}
-            </div>
-            <div className="leading-tight">
-              <div className="text-[10px] uppercase tracking-widest font-bold opacity-70">
-                Yapacağın
-              </div>
-              <div className="font-display text-lg font-semibold">
-                {suggestedPos} şeritte ol
-              </div>
-              <div className="text-xs opacity-80">
-                {suggestedUnified.primary || suggestedUnified.arrowLabel}
-                {destinationLabel ? ` · "${destinationLabel}"` : ""}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="px-5 pb-3 space-y-1.5">
         {unified.map((lane, i) => {
