@@ -49,6 +49,7 @@ export default function SeritRehberiPage() {
         junctionName={activeJunction?.j.name}
         userLng={live?.lng}
         userLat={live?.lat}
+        userAccuracyM={live?.accuracy}
         distanceM={activeJunction?.distanceM}
         routeGeometry={route?.geometry}
         maneuverLngLat={nextManeuver?.step.maneuver.location}

@@ -132,11 +132,13 @@ export function LaneCard({
 
   function speak() {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const action = suggestedUnified
-      ? `${suggestedPos} şeride geç. ${
+    const action = !suggestedUnified
+      ? `Şerit seçimi yapın.`
+      : unified.length <= 1
+      ? `Yola devam edin.`
+      : `${suggestedPos} şeride geçin. ${
           suggestedUnified.primary || suggestedUnified.arrowLabel
-        }.`
-      : `Şerit seçimi yapın.`;
+        }.`;
     const text = `Dikkat. ${distance} metre sonra ${junction.name}. ${action}`;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "tr-TR";
@@ -167,7 +169,8 @@ export function LaneCard({
 
       {/* Harita artık sayfa seviyesinde, kavşak gelmeden de görünür. */}
 
-      {/* Şeritte ol — büyük amber band, haritanın hemen altında */}
+      {/* Şeritte ol — büyük amber band, haritanın hemen altında.
+          Tek şerit varsa 'TEK şeritte ol' anlamsız → 'Yola devam et' deriz. */}
       {suggestedUnified && suggestedPos && (
         <div className="px-5 pt-3 pb-2">
           <div className="rounded-xl bg-vapur text-bogaz-deep px-4 py-3 flex items-center gap-3">
@@ -179,10 +182,14 @@ export function LaneCard({
                 {fmtDistance(distance)} sonra
               </div>
               <div className="font-display text-xl font-semibold">
-                {suggestedPos} şeritte ol
+                {unified.length <= 1
+                  ? "Yola devam et"
+                  : `${suggestedPos} şeritte ol`}
               </div>
               <div className="text-xs opacity-85 truncate">
-                {suggestedUnified.primary || suggestedUnified.arrowLabel}
+                {unified.length <= 1
+                  ? "Bu yolda şerit seçimi yok — düz git"
+                  : suggestedUnified.primary || suggestedUnified.arrowLabel}
               </div>
             </div>
           </div>

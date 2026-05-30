@@ -11,6 +11,7 @@ type Props = {
   junctionName?: string;
   userLng?: number;
   userLat?: number;
+  userAccuracyM?: number;
   distanceM?: number;
   routeGeometry?: { type: "LineString"; coordinates: [number, number][] };
   maneuverLngLat?: [number, number];
@@ -43,6 +44,7 @@ export function NaviMini({
   junctionName,
   userLng,
   userLat,
+  userAccuracyM,
   distanceM,
   routeGeometry,
   maneuverLngLat,
@@ -54,6 +56,19 @@ export function NaviMini({
   const [followMode, setFollowMode] = useState(true);
   const [cityIndex, setCityIndex] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [lastFix, setLastFix] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  // GPS tick'leri arasındaki yaşı her saniye yenile — kullanıcı GPS'in
+  // gerçekten ilerleyip ilerlemediğini görebilsin.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    if (userLng != null && userLat != null) setLastFix(Date.now());
+  }, [userLng, userLat]);
 
   // Tam ekran açılıp kapanınca canvas boyutu değişir — map.resize() çağırmak gerek.
   useEffect(() => {
@@ -134,6 +149,40 @@ export function NaviMini({
     mapRef.current = map;
 
     map.on("load", () => {
+      // GPS hassasiyet halkası — gerçek pixel circle layer; konumun ne kadar
+      // belirsiz olduğu görünür. Halkanın çapı accuracy'ye göre büyür.
+      map.addSource("user-accuracy", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: { radius: 30 },
+          geometry: { type: "Point", coordinates: [uLng, uLat] },
+        },
+      });
+      map.addLayer({
+        id: "user-accuracy-fill",
+        type: "circle",
+        source: "user-accuracy",
+        paint: {
+          // pixel cinsinden zoom ölçekli yarıçap — gerçek metre değil ama
+          // kullanıcıya 'belirsizlik' hissini veriyor
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            ["/", ["get", "radius"], 50],
+            18,
+            ["get", "radius"],
+          ],
+          "circle-color": "#2db7ab",
+          "circle-opacity": 0.12,
+          "circle-stroke-color": "#2db7ab",
+          "circle-stroke-opacity": 0.45,
+          "circle-stroke-width": 1.5,
+        },
+      });
+
       map.addSource("navi-route", {
         type: "geojson",
         data: {
@@ -313,6 +362,19 @@ export function NaviMini({
   useEffect(() => {
     userMarkerRef.current?.setLngLat([uLng, uLat]);
     const map = mapRef.current;
+    // Accuracy halkasını güncelle
+    if (map) {
+      const src = map.getSource("user-accuracy") as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      if (src) {
+        src.setData({
+          type: "Feature",
+          properties: { radius: Math.max(20, Math.min(180, userAccuracyM ?? 30)) },
+          geometry: { type: "Point", coordinates: [uLng, uLat] },
+        });
+      }
+    }
     // Konum varsa ve takip aktifse haritayı kullanıcıya odakla.
     // Eski sürüm route geometrisi de istiyordu — bu nedenle hedef yokken
     // veya rota gelmeden konum ilerlemiyordu. Artık şart değil.
@@ -368,6 +430,9 @@ export function NaviMini({
     }
   }
 
+  // GPS fix yaşı (saniye) — UI'da "GPS 3s" gibi rozet için
+  const gpsAge = lastFix ? Math.max(0, Math.floor((now - lastFix) / 1000)) : 0;
+
   // Tam ekran modunda overlay sarmalı, inline modda kart kabuğu.
   const wrapperClass = fullscreen
     ? "fixed inset-0 z-[60] bg-bogaz-deep"
@@ -407,14 +472,40 @@ export function NaviMini({
           }`}
           style={fullscreen ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
         >
-          <span className="inline-flex items-center gap-1.5 bg-bogaz-deep/85 backdrop-blur rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider">
+          <span
+            className="inline-flex items-center gap-1.5 bg-bogaz-deep/85 backdrop-blur rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider"
+            title={
+              live
+                ? `Son GPS okuma ${gpsAge}s önce${
+                    userAccuracyM ? ` · ±${Math.round(userAccuracyM)} m` : ""
+                  }`
+                : "Konum izni bekleniyor"
+            }
+          >
             <span
               className={`size-1.5 rounded-full ${
-                live ? "bg-cini animate-pulse" : "bg-mehtap"
+                !live
+                  ? "bg-mehtap"
+                  : gpsAge > 10
+                  ? "bg-vapur-red animate-pulse"
+                  : "bg-cini animate-pulse"
               }`}
             />
-            <span className={live ? "text-cini-soft" : "text-mehtap"}>
-              {live ? "Canlı" : "Demo"}
+            <span
+              className={
+                !live
+                  ? "text-mehtap"
+                  : gpsAge > 10
+                  ? "text-vapur-red"
+                  : "text-cini-soft"
+              }
+            >
+              {!live
+                ? "Konum bekleniyor"
+                : gpsAge > 10
+                ? `GPS ${gpsAge}s geç`
+                : `GPS ${gpsAge}s`}
+              {live && userAccuracyM ? ` · ±${Math.round(userAccuracyM)}m` : ""}
             </span>
           </span>
           {cityIndex != null && (
