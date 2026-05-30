@@ -27,7 +27,16 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
 
   function setDestination(d: Destination | null) {
     setDestinationState(d);
-    if (d) router.push("/panel");
+    if (d) {
+      router.push("/panel");
+      // Mobilde drawer açıksa kapat ki sayfa içeriği görünsün
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 1023px)").matches
+      ) {
+        setSideOpen(false);
+      }
+    }
   }
 
   const [selectedIsparkId, setSelectedIsparkId] = useState<number | undefined>();
@@ -38,14 +47,23 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   const [mapTitle, setMapTitle] = useState<string | undefined>();
   const [isparks, setIsparks] = useState<IsparkLive[]>([]);
   const [isparkLoading, setIsparkLoading] = useState(true);
-  const [sideOpen, setSideOpen] = useState(true);
+  // Varsayılan kapalı — mount sonrası ekran boyutuna göre güncellenir
+  // (mobilde kapalı, masaüstünde açık). Bu hidrasyon uyumsuzluğunu önler.
+  const [sideOpen, setSideOpen] = useState(false);
   const [route, setRoute] = useState<OsrmRoute | null>(null);
   const lastRouteFetchRef = useRef<{ lng: number; lat: number; destKey: string } | null>(null);
 
+  // İlk mount: localStorage tercihi varsa onu; yoksa ekran boyutu varsayılanı
+  // (mobil < 1024px → kapalı, masaüstü → açık)
   useEffect(() => {
     try {
       const raw = localStorage.getItem("istbam:sideOpen");
-      if (raw != null) setSideOpen(raw === "1");
+      if (raw === "1") setSideOpen(true);
+      else if (raw === "0") setSideOpen(false);
+      else {
+        const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+        setSideOpen(isDesktop);
+      }
     } catch {}
   }, []);
   useEffect(() => {
