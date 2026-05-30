@@ -94,6 +94,15 @@ export const CITY_FERRIES: CityFerry[] = [
     url: "https://sehirhatlari.istanbul",
   },
   {
+    id: "harem-sirkeci",
+    from: "Harem",
+    to: "Sirkeci",
+    operator: "Şehir Hatları",
+    kind: "klasik",
+    desc: "Üsküdar yakını Harem'den Sirkeci'ye — en kısa Boğaz geçişi (~8 dk).",
+    url: "https://sehirhatlari.istanbul",
+  },
+  {
     id: "eminonu-besiktas-kanlica",
     from: "Eminönü",
     to: "Anadolu Kavağı",
