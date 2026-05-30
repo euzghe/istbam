@@ -260,6 +260,8 @@ function emoji(t: PoiType): string {
   if (t === "hastane") return "🏥";
   if (t === "eczane") return "💊";
   if (t === "sarj") return "⚡";
+  if (t === "yikama") return "🚿";
+  if (t === "taksi") return "🚕";
   return "🏬";
 }
 

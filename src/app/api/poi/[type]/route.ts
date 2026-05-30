@@ -3,7 +3,14 @@ import { fetchPoi, fetchPoiIstanbul, type PoiType } from "@/lib/poi-source";
 export const runtime = "nodejs";
 export const revalidate = 3600;
 
-const VALID: PoiType[] = ["hastane", "eczane", "avm", "sarj"];
+const VALID: PoiType[] = [
+  "hastane",
+  "eczane",
+  "avm",
+  "sarj",
+  "yikama",
+  "taksi",
+];
 
 export async function GET(
   req: Request,

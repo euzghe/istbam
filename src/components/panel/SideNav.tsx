@@ -18,6 +18,8 @@ export type SectionId =
   | "eczane"
   | "avm"
   | "sarj"
+  | "yikama"
+  | "taksi"
   | "favoriler";
 
 type Item = {
@@ -54,6 +56,8 @@ export const SECTIONS: Group[] = [
       { id: "hastane", href: "/panel/hastane", label: "Hastaneler", icon: "🏥", hint: "Devlet / özel" },
       { id: "eczane", href: "/panel/eczane", label: "Eczaneler", icon: "💊", hint: "Nöbetçi / 24h" },
       { id: "avm", href: "/panel/avm", label: "AVM / Outlet", icon: "🏬", hint: "Yakındakiler" },
+      { id: "yikama", href: "/panel/yikama", label: "Oto Yıkama", icon: "🚿", hint: "Self / markalı" },
+      { id: "taksi", href: "/panel/taksi", label: "Taksi", icon: "🚕", hint: "Yakın duraklar" },
     ],
   },
   {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FUEL_PRICE_REFERENCE, BRAND_OFFICIAL } from "@/lib/fuel-source";
+import { BRAND_OFFICIAL } from "@/lib/fuel-source";
 import type { FuelStation } from "@/lib/fuel-source";
+import type { LivePrices } from "@/lib/fuel-live";
 import { haversineKm } from "@/lib/geo";
 
 type StationWithDist = FuelStation & { distanceKm?: number };
@@ -16,7 +17,23 @@ export function FuelCard({
 }) {
   const [stations, setStations] = useState<StationWithDist[]>([]);
   const [loading, setLoading] = useState(false);
+  const [prices, setPrices] = useState<LivePrices | null>(null);
   const ref = live ?? destination;
+
+  // Canlı PO fiyatları
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/fuel-prices")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        if (d.source === "PO") setPrices(d as LivePrices);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!ref) return;
@@ -46,8 +63,6 @@ export function FuelCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref?.lng, ref?.lat]);
 
-  const { prices, updatedAt, source, sourceUrl } = FUEL_PRICE_REFERENCE;
-
   return (
     <section className="relative">
       <header className="px-1 pt-1 pb-4 flex items-start justify-between gap-3">
@@ -60,19 +75,30 @@ export function FuelCard({
           </h2>
         </div>
         <span
-          title="Türkiye'de günlük akaryakıt fiyatı için açık API yok. Fiyatlar EPDK + marka ortalaması, manuel güncelleme."
-          className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider bg-mehtap/20 text-mehtap rounded-full px-2 py-0.5 ring-1 ring-mehtap/30"
+          title="Fiyatlar Petrol Ofisi resmi sayfasından canlı çekiliyor. 6 saatte bir yenilenir."
+          className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider bg-cini/15 text-cini rounded-full px-2 py-0.5 ring-1 ring-cini/30"
         >
-          Referans
+          PO canlı
         </span>
       </header>
 
-      {/* Bugünkü fiyatlar */}
-      <div className="pb-3 grid grid-cols-3 gap-2">
-        <PriceTile lbl="Benzin 95" tl={prices.benzin95} />
-        <PriceTile lbl="Motorin" tl={prices.motorin} />
-        <PriceTile lbl="LPG" tl={prices.lpg} />
-      </div>
+      {/* Bugünkü PO İstanbul fiyatları — Avrupa & Anadolu */}
+      {prices ? (
+        <div className="pb-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <SidePanel
+            title="İstanbul · Avrupa"
+            prices={prices.istanbulAvrupa}
+          />
+          <SidePanel
+            title="İstanbul · Anadolu"
+            prices={prices.istanbulAnadolu}
+          />
+        </div>
+      ) : (
+        <div className="pb-3 text-sm text-on-mute">
+          PO canlı fiyatları yükleniyor…
+        </div>
+      )}
 
       {/* Marka resmi sayfaları */}
       <div className="pb-3">
@@ -175,24 +201,59 @@ export function FuelCard({
 
       <footer className="px-1 pt-3 border-t border-line flex flex-wrap items-center justify-between gap-2 text-[11px] text-on-soft">
         <span>
-          Fiyat son güncelleme:{" "}
-          <strong className="text-on">{updatedAt}</strong>
+          Fiyat kaynağı:{" "}
+          <strong className="text-on">Petrol Ofisi resmi sayfa</strong>
+          {prices ? <> · <span className="text-on">{prices.asOf}</span></> : null}
         </span>
-        <a
-          href={sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="font-semibold text-cini hover:text-vapur transition"
-          title={source}
-        >
-          EPDK günlük ↗
-        </a>
+        {prices && (
+          <a
+            href={prices.url}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-cini hover:text-vapur transition"
+          >
+            PO sayfası ↗
+          </a>
+        )}
       </footer>
     </section>
   );
 }
 
-function PriceTile({ lbl, tl }: { lbl: string; tl: number }) {
+function SidePanel({
+  title,
+  prices,
+}: {
+  title: string;
+  prices: { benzin95?: number; motorin?: number; lpg?: number };
+}) {
+  return (
+    <div className="rounded-xl ring-1 ring-line bg-card/70 backdrop-blur p-3">
+      <div className="text-[10px] uppercase tracking-widest text-on-mute font-bold mb-2">
+        {title}
+      </div>
+      <div className="space-y-1.5">
+        <PriceRow lbl="Benzin 95" tl={prices.benzin95} />
+        <PriceRow lbl="Motorin" tl={prices.motorin} />
+        <PriceRow lbl="LPG" tl={prices.lpg} />
+      </div>
+    </div>
+  );
+}
+
+function PriceRow({ lbl, tl }: { lbl: string; tl?: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-on-soft">{lbl}</span>
+      <span className="font-mono text-sm font-semibold text-on tabular-nums">
+        {tl != null ? `${tl.toFixed(2)} ₺` : "—"}
+      </span>
+    </div>
+  );
+}
+
+// Eski API uyumlu: PriceTile kullanılmıyor ama dışarıya kapalı, siliyoruz
+function _PriceTile({ lbl, tl }: { lbl: string; tl: number }) {
   return (
     <div className="rounded-xl ring-1 ring-line bg-chip px-3 py-2.5">
       <div className="text-[10px] uppercase tracking-widest text-on-mute font-bold">
