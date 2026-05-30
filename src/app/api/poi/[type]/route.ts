@@ -10,6 +10,7 @@ const VALID: PoiType[] = [
   "sarj",
   "yikama",
   "taksi",
+  "cekici",
 ];
 
 export async function GET(

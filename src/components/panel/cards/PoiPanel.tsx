@@ -262,6 +262,7 @@ function emoji(t: PoiType): string {
   if (t === "sarj") return "⚡";
   if (t === "yikama") return "🚿";
   if (t === "taksi") return "🚕";
+  if (t === "cekici") return "🚛";
   return "🏬";
 }
 

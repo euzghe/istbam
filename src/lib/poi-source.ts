@@ -13,7 +13,8 @@ export type PoiType =
   | "avm"
   | "sarj"
   | "yikama"
-  | "taksi";
+  | "taksi"
+  | "cekici";
 
 export type Poi = {
   id: string;
@@ -160,6 +161,25 @@ function taxiCategory(tags: Record<string, string>): {
   return { category: "Taksi durağı", categoryKey: "durak" };
 }
 
+// --- Çekici / Yol Yardım ---
+function towCategory(tags: Record<string, string>): {
+  category: string;
+  categoryKey: string;
+} {
+  const name = (tags.name || "").toLocaleLowerCase("tr");
+  const towService =
+    tags["service:vehicle:tow"] === "yes" ||
+    tags["service:vehicle:roadside_assistance"] === "yes" ||
+    /çekici|cekici|kurtarma|yol yardım|yardim|24 saat/i.test(name);
+  if (towService) {
+    return { category: "Çekici / Yol yardım", categoryKey: "cekici" };
+  }
+  if (tags.amenity === "car_repair") {
+    return { category: "Oto servis", categoryKey: "servis" };
+  }
+  return { category: "Servis", categoryKey: "genel" };
+}
+
 // --- EV Şarj ---
 function chargingCategory(tags: Record<string, string>): {
   category: string;
@@ -206,6 +226,9 @@ function osmFilter(type: PoiType): string {
       return `["amenity"="car_wash"]`;
     case "taksi":
       return `["amenity"="taxi"]`;
+    case "cekici":
+      // Çekici / kurtarma / yol yardım — car_repair çoğu zaman çekici de yapar
+      return `["amenity"~"^(car_repair|car_rental)$"]`;
   }
 }
 
@@ -230,6 +253,7 @@ function parseElements(data: { elements: RawEl[] }, type: PoiType): Poi[] {
       else if (type === "sarj") cat = chargingCategory(tags);
       else if (type === "yikama") cat = carWashCategory(tags);
       else if (type === "taksi") cat = taxiCategory(tags);
+      else if (type === "cekici") cat = towCategory(tags);
       else cat = mallCategory(tags);
 
       return {
@@ -335,11 +359,21 @@ export function poiMarkerColor(type: PoiType, categoryKey: string): string {
   if (type === "taksi") {
     switch (categoryKey) {
       case "havalimani":
-        return "#e95696"; // pembe
+        return "#e95696";
       case "buyuk":
-        return "#2eb872"; // yeşil — büyük durak
+        return "#2eb872";
       default:
-        return "#f5a524"; // sarı — klasik taksi
+        return "#f5a524";
+    }
+  }
+  if (type === "cekici") {
+    switch (categoryKey) {
+      case "cekici":
+        return "#c84b4b"; // kırmızı — açık çekici/yol yardım
+      case "servis":
+        return "#1d4b8f"; // mavi — oto servis
+      default:
+        return "#7d8aa3";
     }
   }
   // AVM
@@ -390,6 +424,12 @@ export function poiLegend(
       { color: "#f5a524", label: "Klasik durak", key: "durak" },
       { color: "#2eb872", label: "Büyük durak", key: "buyuk" },
       { color: "#e95696", label: "Havalimanı", key: "havalimani" },
+    ];
+  }
+  if (type === "cekici") {
+    return [
+      { color: "#c84b4b", label: "Çekici / Yol yardım", key: "cekici" },
+      { color: "#1d4b8f", label: "Oto servis", key: "servis" },
     ];
   }
   return [
