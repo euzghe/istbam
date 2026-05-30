@@ -31,7 +31,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   function setDestination(d: Destination | null) {
     setDestinationState(d);
     if (d) {
-      router.push("/panel");
+      router.push("/panel/serit-rehberi");
       // Mobilde drawer açıksa kapat ki sayfa içeriği görünsün
       if (
         typeof window !== "undefined" &&
