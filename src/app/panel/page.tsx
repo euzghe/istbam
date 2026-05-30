@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/panel/sections/PageHeader";
 import { CityPulseCard } from "@/components/panel/sections/CityPulseCard";
 import { BogazCrossingCard } from "@/components/panel/sections/BogazCrossingCard";
 import { FavoritesQuick } from "@/components/panel/sections/FavoritesQuick";
+import { InstallAppCard } from "@/components/panel/sections/InstallAppCard";
 
 // Ana sayfa hızlı erişim kartları — sürücünün en sık ihtiyaç duydukları.
 const QUICK = [
@@ -26,6 +27,8 @@ export default function AnaSayfa() {
         description="İstanbul şu an nasıl? Trafik, hava, köprü, İSPARK, yakıt — tek bakışta gerçek veri."
         accent="vapur"
       />
+
+      <InstallAppCard />
 
       <div className="animate-fade-in-up">
         <CityPulseCard />
