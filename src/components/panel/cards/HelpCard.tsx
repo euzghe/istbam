@@ -9,33 +9,6 @@ type SavedInsurance = {
 
 const LS_KEY = "istbam:insurance";
 
-const QUICK = [
-  {
-    code: "154",
-    name: "Trafik Polisi",
-    sub: "Kaza, kapalı yol ihbar",
-    color: "vapur",
-  },
-  {
-    code: "155",
-    name: "Polis İmdat",
-    sub: "Hırsızlık, saldırı",
-    color: "cini",
-  },
-  {
-    code: "156",
-    name: "Jandarma",
-    sub: "Şehir dışı, otoyol",
-    color: "cini",
-  },
-  {
-    code: "158",
-    name: "Sahil Güvenlik",
-    sub: "Sahil/deniz kazası",
-    color: "cini",
-  },
-];
-
 export function HelpCard({
   live,
 }: {
@@ -219,32 +192,6 @@ export function HelpCard({
         )}
       </div>
 
-      {/* Hızlı numaralar grid */}
-      <div className="pb-3">
-        <div className="text-[10px] uppercase tracking-widest text-on-mute font-bold mb-1.5">
-          Hızlı numara
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          {QUICK.map((q) => (
-            <a
-              key={q.code}
-              href={`tel:${q.code}`}
-              className="group rounded-lg bg-chip ring-1 ring-line px-3 py-2.5 hover:bg-cini/10 hover:ring-cini/40 transition"
-            >
-              <div className="font-display text-2xl font-semibold text-on leading-none tabular-nums">
-                {q.code}
-              </div>
-              <div className="text-[11px] font-semibold text-on mt-1 leading-tight">
-                {q.name}
-              </div>
-              <div className="text-[10px] text-on-mute leading-tight">
-                {q.sub}
-              </div>
-            </a>
-          ))}
-        </div>
-      </div>
-
       {/* Konum paylaş */}
       <div className="pb-4">
         <div className="text-[10px] uppercase tracking-widest text-on-mute font-bold mb-1.5">
@@ -292,24 +239,24 @@ export function HelpCard({
       {/* Rehber */}
       <footer className="rounded-2xl bg-bogaz-deep text-sis/85 px-4 py-3 text-[11px] leading-relaxed">
         <div className="text-[9px] uppercase tracking-widest text-vapur font-bold mb-1">
-          Ne zaman kimi ararsın?
+          Ne zaman ne yaparsın?
         </div>
         <ul className="space-y-0.5 text-sis/75">
           <li>
-            <strong className="text-vapur">Kaza · yaralı:</strong> 112, sonra
-            154
+            <strong className="text-vapur">Kaza · yaralı · acil durum:</strong>{" "}
+            112 — sağlık, itfaiye, polis ve trafik aynı hattan yönlendirilir
           </li>
           <li>
             <strong className="text-vapur">Lastik · arıza · yolda kaldın:</strong>{" "}
             önce sigorta/kasko (yukarı kaydet)
           </li>
           <li>
-            <strong className="text-vapur">Yol kapalı · trafiği bildir:</strong>{" "}
-            154
+            <strong className="text-vapur">Yol kapalı · trafik ihbar:</strong>{" "}
+            112 üzerinden trafik polisine yönlendirilirsin
           </li>
           <li>
-            <strong className="text-vapur">Otoyolda kaza:</strong> 156
-            (jandarma) veya 154
+            <strong className="text-vapur">Konumunu paylaş:</strong> aşağıdaki
+            WhatsApp / SMS / kopyala düğmeleriyle anında aile/arkadaş bilgilendir
           </li>
         </ul>
       </footer>
