@@ -1,6 +1,6 @@
 "use client";
 
-import { FERRIES, PASSENGER_SEABUS } from "@/data/ferries";
+import { FERRIES, PASSENGER_SEABUS, CITY_FERRIES } from "@/data/ferries";
 
 export function FerryCard() {
   const main = FERRIES[0]; // Gestaş Eskihisar-Topçular — tek gerçek hat
@@ -47,10 +47,54 @@ export function FerryCard() {
         ama kuyruk uzunluğu ve sefer aralığı değişebilir. <strong>Anlık saatler / kuyruk için Gestaş.</strong>
       </div>
 
-      {/* Yolcu hatları — yanlış bilgiyle karıştırılmasın diye ayrı */}
-      <div className="mt-4">
+      {/* İstanbul içi vapur hatları — yolcu */}
+      <div className="mt-5">
         <h3 className="text-[10px] uppercase tracking-widest text-on-mute font-bold mb-2">
-          Yolcu deniz otobüsü (araç almaz)
+          İstanbul içi yolcu vapur hatları
+        </h3>
+        <ul className="space-y-1.5">
+          {CITY_FERRIES.map((f) => (
+            <li
+              key={f.id}
+              className="rounded-xl bg-card ring-1 ring-line px-3 py-2"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-on truncate">
+                    <span
+                      className={
+                        f.kind === "hizli"
+                          ? "text-vapur"
+                          : "text-cini"
+                      }
+                    >
+                      {f.kind === "hizli" ? "⚡" : "⛴"}
+                    </span>{" "}
+                    {f.from} → {f.to}
+                  </div>
+                  <div className="text-[11px] text-on-soft mt-0.5 leading-snug">
+                    {f.operator}
+                    {f.desc ? ` · ${f.desc}` : ""}
+                  </div>
+                </div>
+                <a
+                  href={f.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-[11px] font-semibold text-cini hover:text-vapur transition"
+                >
+                  Sefer ↗
+                </a>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Yolcu hatları — şehir-dışı uzun mesafe (Bursa, Yalova) */}
+      <div className="mt-5">
+        <h3 className="text-[10px] uppercase tracking-widest text-on-mute font-bold mb-2">
+          Şehir dışı yolcu hatları (araç almaz)
         </h3>
         <ul className="space-y-1.5">
           {PASSENGER_SEABUS.map((s) => (
