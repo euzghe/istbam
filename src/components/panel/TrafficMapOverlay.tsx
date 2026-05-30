@@ -9,16 +9,14 @@ import {
   bridgeEstimatedMin,
 } from "@/data/bridges";
 import { trafficStatusTr } from "@/lib/traffic-source";
-import type { Route as OsrmRoute } from "@/lib/route-source";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   live?: { lng: number; lat: number };
-  route?: OsrmRoute | null;
 };
 
-export function TrafficMapOverlay({ open, onClose, live, route }: Props) {
+export function TrafficMapOverlay({ open, onClose, live }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [cityIndex, setCityIndex] = useState<number | null>(null);
@@ -76,7 +74,7 @@ export function TrafficMapOverlay({ open, onClose, live, route }: Props) {
       style: isDark
         ? "https://tiles.openfreemap.org/styles/dark"
         : "https://tiles.openfreemap.org/styles/positron",
-      center: live ? [live.lng, live.lat] : [29.02, 41.05],
+      center: [29.02, 41.05], // İstanbul merkez — trafik için her zaman şehir geneli
       zoom: 10.5,
       attributionControl: { compact: true },
     });
@@ -86,75 +84,8 @@ export function TrafficMapOverlay({ open, onClose, live, route }: Props) {
       new maplibregl.NavigationControl({ showCompass: false }),
       "top-right"
     );
-    if (live) {
-      map.addControl(
-        new maplibregl.GeolocateControl({
-          positionOptions: { enableHighAccuracy: true },
-          trackUserLocation: true,
-        }),
-        "top-right"
-      );
-    }
 
     map.on("load", () => {
-      // Kullanıcı pulse marker'ı
-      if (live) {
-        const userEl = document.createElement("div");
-        userEl.innerHTML = `
-          <div style="position:relative; width:34px; height:34px;">
-            <div style="position:absolute; inset:0; border-radius:50%;
-              background:#2db7ab; opacity:0.35; animation: trafficUserPulse 1.8s ease-out infinite;"></div>
-            <div style="position:absolute; inset:8px; border-radius:50%;
-              background:#2db7ab; border:2.5px solid #f6f2e9;
-              box-shadow:0 3px 8px rgba(10,29,58,0.5);"></div>
-          </div>`;
-        new maplibregl.Marker({ element: userEl })
-          .setLngLat([live.lng, live.lat])
-          .addTo(map);
-        if (!document.getElementById("__istbam_traffic_pulse")) {
-          const s = document.createElement("style");
-          s.id = "__istbam_traffic_pulse";
-          s.textContent = `@keyframes trafficUserPulse { 0% { transform: scale(0.9); opacity: 0.7; } 70% { transform: scale(1.7); opacity: 0; } 100% { transform: scale(1.7); opacity: 0; } }`;
-          document.head.appendChild(s);
-        }
-      }
-
-      // Rota polyline (eğer aktif rota varsa, trafiğe göre renkli)
-      if (route?.geometry?.coordinates?.length) {
-        const idx = cityIndex ?? 50;
-        const routeColor =
-          idx < 30 ? "#2eb872" : idx < 60 ? "#f5a524" : "#c84b4b";
-
-        map.addSource("traffic-route", {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: route.geometry,
-          },
-        });
-        map.addLayer({
-          id: "traffic-route-casing",
-          type: "line",
-          source: "traffic-route",
-          paint: {
-            "line-color": "#0a1d3a",
-            "line-width": 10,
-            "line-opacity": 0.5,
-          },
-        });
-        map.addLayer({
-          id: "traffic-route-line",
-          type: "line",
-          source: "traffic-route",
-          paint: {
-            "line-color": routeColor,
-            "line-width": 6,
-            "line-opacity": 0.9,
-          },
-        });
-      }
-
       drawBridges();
     });
 
@@ -169,17 +100,6 @@ export function TrafficMapOverlay({ open, onClose, live, route }: Props) {
   useEffect(() => {
     if (!mapRef.current?.loaded()) return;
     drawBridges();
-    // Rota rengini de güncelle
-    const map = mapRef.current;
-    if (cityIndex != null && map?.getLayer("traffic-route-line")) {
-      const routeColor =
-        cityIndex < 30
-          ? "#2eb872"
-          : cityIndex < 60
-          ? "#f5a524"
-          : "#c84b4b";
-      map.setPaintProperty("traffic-route-line", "line-color", routeColor);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityIndex]);
 
@@ -347,16 +267,9 @@ export function TrafficMapOverlay({ open, onClose, live, route }: Props) {
           <span className="inline-flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-vapur-red" /> Çok yoğun
           </span>
-          {route && (
-            <span className="ml-auto text-on">
-              Rotanın da trafik rengini görüyorsun
-            </span>
-          )}
-          {!route && (
-            <span className="ml-auto text-on-mute">
-              Hedef seçince rotan da trafiğe göre renklenir
-            </span>
-          )}
+          <span className="ml-auto text-on-mute">
+            Yol-bazlı detay için "İBB resmi" linki — açık API yok
+          </span>
         </footer>
       </div>
     </div>

@@ -324,7 +324,6 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           open={trafficMapOpen}
           onClose={() => setTrafficMapOpen(false)}
           live={live ? { lng: live.lng, lat: live.lat } : undefined}
-          route={route}
         />
       </div>
     </PanelContext.Provider>
