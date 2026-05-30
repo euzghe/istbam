@@ -5,16 +5,20 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 type Props = {
-  junctionLat: number;
-  junctionLng: number;
-  junctionName: string;
+  // Kavşak verisi opsiyonel — yoksa kullanıcının konumuna odaklanırız.
+  junctionLat?: number;
+  junctionLng?: number;
+  junctionName?: string;
   userLng?: number;
   userLat?: number;
-  distanceM: number;
+  distanceM?: number;
   routeGeometry?: { type: "LineString"; coordinates: [number, number][] };
   maneuverLngLat?: [number, number];
   maneuverArrow?: string;
 };
+
+// İstanbul merkez fallback (Galata - kullanıcı konumu yoksa)
+const ISTANBUL_CENTER = { lng: 28.974, lat: 41.0255 };
 
 // Şehir bearing — iki nokta arası yön açısı (kuzeyden saat yönünde derece)
 function bearing(
@@ -74,11 +78,14 @@ export function NaviMini({
   }, [fullscreen]);
 
   const live = userLng != null && userLat != null;
-  const uLng = userLng ?? junctionLng;
-  const uLat = userLat ?? junctionLat - 0.0022;
+  const hasJunction = junctionLat != null && junctionLng != null;
 
-  const focusLng = maneuverLngLat?.[0] ?? junctionLng;
-  const focusLat = maneuverLngLat?.[1] ?? junctionLat;
+  // Konum > kavşak > İstanbul merkezi sıralı fallback
+  const uLng = userLng ?? junctionLng ?? ISTANBUL_CENTER.lng;
+  const uLat = userLat ?? (junctionLat != null ? junctionLat - 0.0022 : ISTANBUL_CENTER.lat);
+
+  const focusLng = maneuverLngLat?.[0] ?? junctionLng ?? uLng;
+  const focusLat = maneuverLngLat?.[1] ?? junctionLat ?? uLat;
 
   // İBB şehir trafik endeksini çek (rota polyline rengi için)
   useEffect(() => {
@@ -169,21 +176,24 @@ export function NaviMini({
         .setLngLat([uLng, uLat])
         .addTo(map);
 
-      const focusEl = document.createElement("div");
-      focusEl.style.cssText = `
-        width: 0; height: 0;
-        border-left: 13px solid transparent;
-        border-right: 13px solid transparent;
-        border-bottom: 20px solid #f5a524;
-        filter: drop-shadow(0 3px 6px rgba(10,29,58,0.6));
-      `;
-      focusEl.title = junctionName;
-      focusMarkerRef.current = new maplibregl.Marker({
-        element: focusEl,
-        anchor: "bottom",
-      })
-        .setLngLat([focusLng, focusLat])
-        .addTo(map);
+      // Kavşak hedef üçgeni — yalnız hedef varsa göster.
+      if (hasJunction) {
+        const focusEl = document.createElement("div");
+        focusEl.style.cssText = `
+          width: 0; height: 0;
+          border-left: 13px solid transparent;
+          border-right: 13px solid transparent;
+          border-bottom: 20px solid #f5a524;
+          filter: drop-shadow(0 3px 6px rgba(10,29,58,0.6));
+        `;
+        focusEl.title = junctionName ?? "Hedef";
+        focusMarkerRef.current = new maplibregl.Marker({
+          element: focusEl,
+          anchor: "bottom",
+        })
+          .setLngLat([focusLng, focusLat])
+          .addTo(map);
+      }
 
       if (!document.getElementById("__istbam_navi_pulse")) {
         const s = document.createElement("style");
@@ -260,7 +270,8 @@ export function NaviMini({
             pitch: 0,
           });
         }
-      } else {
+      } else if (hasJunction) {
+        // Rota yok ama kavşak var — kullanıcı ile kavşak arası düz çizgi.
         src.setData({
           type: "Feature",
           properties: {},
@@ -276,6 +287,20 @@ export function NaviMini({
           .extend([uLng, uLat])
           .extend([focusLng, focusLat]);
         map.fitBounds(bbox, { padding: 60, maxZoom: 16, duration: 600 });
+      } else {
+        // Ne kavşak ne rota — sadece kullanıcıya odaklan.
+        src.setData({
+          type: "Feature",
+          properties: {},
+          geometry: { type: "LineString", coordinates: [] },
+        });
+        map.easeTo({
+          center: [uLng, uLat],
+          zoom: live ? 15 : 11,
+          pitch: 0,
+          bearing: 0,
+          duration: 600,
+        });
       }
     };
 
@@ -388,18 +413,24 @@ export function NaviMini({
           >
             {fullscreen ? "✕ Çık" : "⛶ Tam ekran"}
           </button>
-          <span className="bg-vapur text-bogaz-deep text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1">
-            {distanceM < 1000
-              ? `${distanceM} m`
-              : `${(distanceM / 1000).toFixed(1)} km`}
-          </span>
+          {distanceM != null && hasJunction && (
+            <span className="bg-vapur text-bogaz-deep text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1">
+              {distanceM < 1000
+                ? `${distanceM} m`
+                : `${(distanceM / 1000).toFixed(1)} km`}
+            </span>
+          )}
         </div>
 
         <div
           className="absolute bottom-2 left-2 right-2 bg-bogaz-deep/85 backdrop-blur rounded-md px-2.5 py-1.5 text-[11px] text-sis truncate"
           style={fullscreen ? { paddingBottom: "env(safe-area-inset-bottom)" } : undefined}
         >
-          ↗ {junctionName}
+          {hasJunction
+            ? `↗ ${junctionName ?? "Hedef"}`
+            : live
+            ? "📍 Konumun · yaklaşan kavşak yok"
+            : "📍 Konumun bekleniyor… (Konum izni ver)"}
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { usePanel } from "@/components/panel/PanelContext";
 import { LaneCard } from "@/components/panel/cards/LaneCard";
+import { NaviMini } from "@/components/panel/NaviMini";
 import {
   NoJunctionCard,
   LocationBanner,
@@ -39,6 +40,20 @@ export default function SeritRehberiPage() {
         }
         accent={navigating ? "vapur" : "cini"}
       />
+
+      {/* Harita HER ZAMAN üstte — kavşak/rota gelse de gelmese de.
+          Kullanıcı sayfayı açar açmaz konumunu haritada görür. */}
+      <NaviMini
+        junctionLat={activeJunction?.j.lat}
+        junctionLng={activeJunction?.j.lng}
+        junctionName={activeJunction?.j.name}
+        userLng={live?.lng}
+        userLat={live?.lat}
+        distanceM={activeJunction?.distanceM}
+        routeGeometry={route?.geometry}
+        maneuverLngLat={nextManeuver?.step.maneuver.location}
+      />
+
       <StatusStrip />
       <RouteStatusCard />
       <SpeedWidget />

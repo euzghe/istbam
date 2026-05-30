@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { Junction } from "../PanelContext";
 import type { OsmLane, OsmLanesEmpty, OsmLanesResult } from "@/lib/overpass";
 import { turnArrow, turnLabelTr } from "@/lib/overpass";
-import { NaviMini } from "../NaviMini";
 
 type Source = "osm" | "manual" | "demo" | "loading" | "empty";
 
@@ -166,17 +165,7 @@ export function LaneCard({
         </div>
       )}
 
-      {/* HARİTA EN ÜSTE — sayfa açılınca ilk göreceğin şey */}
-      <NaviMini
-        junctionLat={junction.lat}
-        junctionLng={junction.lng}
-        junctionName={junction.name}
-        userLng={userLng}
-        userLat={userLat}
-        distanceM={distance}
-        routeGeometry={routeGeometry}
-        maneuverLngLat={maneuverLngLat}
-      />
+      {/* Harita artık sayfa seviyesinde, kavşak gelmeden de görünür. */}
 
       {/* Şeritte ol — büyük amber band, haritanın hemen altında */}
       {suggestedUnified && suggestedPos && (
