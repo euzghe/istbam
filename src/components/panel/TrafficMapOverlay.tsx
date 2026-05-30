@@ -21,7 +21,6 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [cityIndex, setCityIndex] = useState<number | null>(null);
   const [visible, setVisible] = useState(false);
-  const [networkLoaded, setNetworkLoaded] = useState(false);
 
   // Canlı trafik endeksi
   useEffect(() => {
@@ -88,69 +87,6 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
 
     map.on("load", () => {
       drawBridges();
-      // Yol ağını arka planda yükle (3 MB civarı, gzip ile küçük)
-      fetch("/api/road-network")
-        .then((r) => r.json())
-        .then((nw) => {
-          if (!mapRef.current) return;
-          if (!nw?.features?.length) return;
-          if (mapRef.current.getSource("road-network")) return;
-
-          mapRef.current.addSource("road-network", {
-            type: "geojson",
-            data: nw,
-          });
-
-          // Kontur (kalın koyu)
-          mapRef.current.addLayer({
-            id: "road-network-casing",
-            type: "line",
-            source: "road-network",
-            paint: {
-              "line-color": "#0a1d3a",
-              "line-width": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-                8,
-                ["case", ["==", ["get", "cls"], "motorway"], 5, 3],
-                14,
-                ["case", ["==", ["get", "cls"], "motorway"], 12, 7],
-              ],
-              "line-opacity": 0.45,
-            },
-          });
-          // Ana renkli çizgi — başlangıçta cityIndex closure'daki değeri
-          // (network yüklenene kadar cityIndex zaten gelmiş olur, gelmediyse gri kalır)
-          const initialColor =
-            cityIndex == null
-              ? "#7d8aa3"
-              : cityIndex < 30
-              ? "#2eb872"
-              : cityIndex < 60
-              ? "#f5a524"
-              : "#c84b4b";
-          mapRef.current.addLayer({
-            id: "road-network-line",
-            type: "line",
-            source: "road-network",
-            paint: {
-              "line-color": initialColor,
-              "line-width": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-                8,
-                ["case", ["==", ["get", "cls"], "motorway"], 3, 2],
-                14,
-                ["case", ["==", ["get", "cls"], "motorway"], 8, 5],
-              ],
-              "line-opacity": 0.92,
-            },
-          });
-          setNetworkLoaded(true);
-        })
-        .catch(() => {});
     });
 
     return () => {
@@ -160,26 +96,13 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // cityIndex/networkLoaded değişince köprü + yol rengini güncelle.
-  // map.loaded() check'ini KALDIRDIK — addLayer sonrası transient false
-  // dönüp güncellemeyi blokluyordu.
+  // cityIndex değişince köprü renklerini yenile
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     drawBridges();
-    if (map.getLayer("road-network-line")) {
-      const color =
-        cityIndex == null
-          ? "#7d8aa3"
-          : cityIndex < 30
-          ? "#2eb872"
-          : cityIndex < 60
-          ? "#f5a524"
-          : "#c84b4b";
-      map.setPaintProperty("road-network-line", "line-color", color);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cityIndex, networkLoaded]);
+  }, [cityIndex]);
 
   function drawBridges() {
     const map = mapRef.current;
@@ -314,26 +237,41 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onClose}
+            className="rounded-full px-3 py-1.5 text-xs font-semibold bg-sis/10 hover:bg-sis/15 ring-1 ring-sis/20 transition shrink-0"
+            aria-label="Kapat"
+          >
+            ✕ Kapat
+          </button>
+        </header>
+
+        <div ref={containerRef} className="flex-1" />
+
+        {/* Per-segment trafik için İBB resmi harita — büyük CTA */}
+        <div className="bg-bogaz-deep text-sis px-4 py-3 border-t border-sis/10">
+          <div className="flex items-start sm:items-center gap-3 justify-between flex-wrap">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-widest text-vapur font-bold">
+                Yol-yol gerçek renkli trafik için
+              </div>
+              <div className="text-sm text-sis font-semibold mt-0.5 leading-tight">
+                İBB Trafik Yönetim Merkezi&apos;nin resmi canlı haritası
+              </div>
+              <div className="text-[10px] text-sis/60 mt-1 leading-snug">
+                Açık API olmadığı için per-segment veriyi sadece İBB&apos;nin kendi haritası yayınlıyor.
+              </div>
+            </div>
             <a
               href="https://uym.ibb.gov.tr/yharita6/"
               target="_blank"
               rel="noreferrer"
-              className="rounded-full bg-vapur text-bogaz-deep font-semibold text-[11px] px-3 py-1.5 hover:bg-vapur-soft transition"
+              className="shrink-0 rounded-full bg-vapur text-bogaz-deep font-bold text-sm px-4 py-2 hover:bg-vapur-soft transition shadow-md"
             >
-              İBB resmi ↗
+              Resmi haritayı aç ↗
             </a>
-            <button
-              onClick={onClose}
-              className="rounded-full px-3 py-1.5 text-xs font-semibold bg-sis/10 hover:bg-sis/15 ring-1 ring-sis/20 transition"
-              aria-label="Kapat"
-            >
-              ✕ Kapat
-            </button>
           </div>
-        </header>
-
-        <div ref={containerRef} className="flex-1" />
+        </div>
 
         <footer className="px-4 py-2 bg-card/95 flex items-center gap-3 text-[11px] text-on-soft border-t border-line">
           <span className="inline-flex items-center gap-1.5">
@@ -346,7 +284,7 @@ export function TrafficMapOverlay({ open, onClose, live }: Props) {
             <span className="size-2.5 rounded-full bg-vapur-red" /> Çok yoğun
           </span>
           <span className="ml-auto text-on-mute">
-            Renk = şehir endeksi · Yollar OSM, ağ uniform renkte
+            Renk = boğaz geçişleri (şehir endeksinden)
           </span>
         </footer>
       </div>
