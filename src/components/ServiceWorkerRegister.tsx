@@ -23,42 +23,17 @@ export function ServiceWorkerRegister() {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator))
       return;
 
-    const isDev =
-      typeof window !== "undefined" &&
-      (window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1" ||
-        window.location.hostname.endsWith(".local"));
-
-    // DEV: SW'yi kayıt etme. Önceki dev sürümünden kalan SW + cache varsa
-    // temizle ki bayatlamış chunk hatası ("module factory is not available") olmasın.
-    if (isDev) {
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((r) => r.unregister().catch(() => {}));
+    // Geliştirme aktif olduğu için SW şu an her ortamda kapalı.
+    // Var olan kayıtları sil + cache'leri temizle ki eski JS chunk'ları
+    // kullanıcılara servis edilmesin.
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((r) => r.unregister().catch(() => {}));
+    });
+    if ("caches" in window) {
+      caches.keys().then((keys) => {
+        keys.forEach((k) => caches.delete(k).catch(() => {}));
       });
-      if ("caches" in window) {
-        caches.keys().then((keys) => {
-          keys.forEach((k) => caches.delete(k).catch(() => {}));
-        });
-      }
-      return;
     }
-
-    // PROD: SW kayıt
-    navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
-      .then((reg) => {
-        if (reg.waiting) setUpdated(true);
-        reg.addEventListener("updatefound", () => {
-          const sw = reg.installing;
-          if (!sw) return;
-          sw.addEventListener("statechange", () => {
-            if (sw.state === "installed" && navigator.serviceWorker.controller) {
-              setUpdated(true);
-            }
-          });
-        });
-      })
-      .catch(() => {});
   }, []);
 
   function refresh() {

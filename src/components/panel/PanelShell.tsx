@@ -501,8 +501,15 @@ function TopBar({
                   {popularMatches.map((p) => (
                     <button
                       key={`p-${p.label}`}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => pickPopular(p)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        pickPopular(p);
+                      }}
+                      onTouchStart={(e) => {
+                        // iOS Safari'de delayed click sorununu önle
+                        e.preventDefault();
+                        pickPopular(p);
+                      }}
                       className="w-full text-left px-4 py-2.5 hover:bg-chip transition flex items-center justify-between border-b border-line last:border-0"
                     >
                       <div className="min-w-0 flex items-center gap-2">
@@ -534,8 +541,14 @@ function TopBar({
                   {hits.map((h) => (
                     <button
                       key={h.id}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => pickHit(h)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        pickHit(h);
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        pickHit(h);
+                      }}
                       className="w-full text-left px-4 py-2.5 hover:bg-chip transition flex items-center justify-between border-b border-line last:border-0"
                     >
                       <div className="min-w-0">
